@@ -23,6 +23,8 @@ public sealed class PdvDbContext(DbContextOptions<PdvDbContext> options) : DbCon
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductBarcode> ProductBarcodes => Set<ProductBarcode>();
     public DbSet<TaxProfile> TaxProfiles => Set<TaxProfile>();
+    public DbSet<FiscalDocument> FiscalDocuments => Set<FiscalDocument>();
+    public DbSet<FiscalSeries> FiscalSeries => Set<FiscalSeries>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<CashSession> CashSessions => Set<CashSession>();
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();

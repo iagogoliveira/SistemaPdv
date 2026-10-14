@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Pdv.Infrastructure\Pdv.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Pdv.Fiscal\Pdv.Fiscal.csproj" />
   </ItemGroup>
 
 </Project>

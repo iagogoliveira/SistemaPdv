@@ -15,7 +15,7 @@ namespace Pdv.Infrastructure.Tests;
 /// Banco real no PostgreSQL (docker compose up -d). A variável PDV_TEST_PG substitui a conexão do servidor.
 /// Cada execução usa um banco próprio, removido ao final.
 /// </summary>
-public sealed class DatabaseFixture : IAsyncLifetime
+public class DatabaseFixture : IAsyncLifetime
 {
     public string ConnectionString { get; } =
         $"{Environment.GetEnvironmentVariable("PDV_TEST_PG") ?? "Host=localhost;Username=pdv;Password=pdv_dev"};Database=pdv_tests_{Guid.NewGuid():N}";
@@ -26,9 +26,14 @@ public sealed class DatabaseFixture : IAsyncLifetime
     public Terminal Terminal { get; private set; } = null!;
     public Guid ProductId { get; private set; }
 
-    public async ValueTask InitializeAsync()
+    /// <summary>Permite que fixtures derivadas registrem serviços extras (ex.: SEFAZ simulada).</summary>
+    protected virtual void ConfigureServices(IServiceCollection services) { }
+
+    public virtual async ValueTask InitializeAsync()
     {
-        Services = new ServiceCollection().AddApplication().AddInfrastructure(ConnectionString).BuildServiceProvider();
+        var services = new ServiceCollection().AddApplication().AddInfrastructure(ConnectionString);
+        ConfigureServices(services);
+        Services = services.BuildServiceProvider();
 
         await using var scope = Services.CreateAsyncScope();
         var init = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
@@ -55,11 +60,12 @@ public sealed class DatabaseFixture : IAsyncLifetime
         await scope.ServiceProvider.GetRequiredService<CashService>().OpenAsync(Terminal.Id, OperatorUserId, 100m);
     }
 
-    public async ValueTask DisposeAsync()
+    public virtual async ValueTask DisposeAsync()
     {
         await using (var scope = Services.CreateAsyncScope())
             await scope.ServiceProvider.GetRequiredService<PdvDbContext>().Database.EnsureDeletedAsync();
         await Services.DisposeAsync();
+        GC.SuppressFinalize(this);
     }
 
     public AsyncServiceScope NewScope() => Services.CreateAsyncScope();

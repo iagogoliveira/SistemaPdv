@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Pdv.Application.Fiscal;
 using Pdv.Application.Sales;
 using Pdv.Desktop.Services;
 
@@ -9,9 +10,10 @@ namespace Pdv.Desktop.Views;
 /// <summary>Visualização do comprovante na tela, com opção de imprimir (reimpressão ou sem impressora).</summary>
 public sealed class ReceiptPreviewWindow : Window
 {
-    public ReceiptPreviewWindow(ReceiptData receipt, ReceiptPrinter printer, IDialogService dialogs)
+    public ReceiptPreviewWindow(ReceiptData receipt, ReceiptPrinter printer, IDialogService dialogs, NfceInfo? fiscal = null)
     {
-        Title = $"Comprovante — venda nº {receipt.Number}";
+        Title = fiscal is null ? $"Comprovante — venda nº {receipt.Number}" : $"DANFE NFC-e nº {fiscal.Number} — venda nº {receipt.Number}";
+        Height = fiscal is null ? 640 : 760;
         Width = 420;
         Height = 640;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -19,7 +21,7 @@ public sealed class ReceiptPreviewWindow : Window
         FontFamily = (FontFamily)FindResource("UiFont");
         FontSize = 14;
 
-        var document = ReceiptPrinter.Build(receipt, printer.Options.PaperWidthMm);
+        var document = ReceiptPrinter.Build(receipt, printer.Options.PaperWidthMm, fiscal);
         var viewer = new FlowDocumentScrollViewer
         {
             Document = document,
@@ -33,7 +35,7 @@ public sealed class ReceiptPreviewWindow : Window
         {
             try
             {
-                printer.Print(receipt);
+                printer.Print(receipt, fiscal);
                 Close();
             }
             catch (Exception ex)

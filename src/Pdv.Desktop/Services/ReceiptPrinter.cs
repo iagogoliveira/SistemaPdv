@@ -4,10 +4,13 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Microsoft.Extensions.Configuration;
+using Pdv.Application.Fiscal;
 using Pdv.Application.Sales;
 using Pdv.Domain.Fiscal;
 using Pdv.Domain.Sales;
+using QRCoder;
 
 namespace Pdv.Desktop.Services;
 
@@ -30,7 +33,7 @@ public sealed class ReceiptOptions
 }
 
 /// <summary>
-/// Comprovante NÃO fiscal impresso pelo driver do Windows (spooler). Funciona com qualquer impressora
+/// Comprovante não fiscal ou DANFE NFC-e (quando a venda tem nota), impresso pelo driver do Windows (spooler). Funciona com qualquer impressora
 /// térmica que tenha driver instalado; comandos ESC/POS diretos (guilhotina, gaveta) ficam para a matriz de hardware.
 /// </summary>
 public sealed class ReceiptPrinter(IConfiguration configuration)
@@ -39,7 +42,7 @@ public sealed class ReceiptPrinter(IConfiguration configuration)
 
     public ReceiptOptions Options { get; } = configuration.GetSection("Pdv:Receipt").Get<ReceiptOptions>() ?? new();
 
-    public void Print(ReceiptData receipt)
+    public void Print(ReceiptData receipt, NfceInfo? fiscal = null)
     {
         var dialog = new PrintDialog();
         if (!string.IsNullOrWhiteSpace(Options.Printer))
@@ -48,11 +51,12 @@ public sealed class ReceiptPrinter(IConfiguration configuration)
             dialog.PrintQueue = new PrintQueue(server, Options.Printer);
         }
 
-        var document = Build(receipt, Options.PaperWidthMm);
-        dialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, $"Comprovante {receipt.Number}");
+        var document = Build(receipt, Options.PaperWidthMm, fiscal);
+        dialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator,
+            fiscal is null ? $"Comprovante {receipt.Number}" : $"NFC-e {fiscal.Number}");
     }
 
-    public static FlowDocument Build(ReceiptData r, int paperWidthMm)
+    public static FlowDocument Build(ReceiptData r, int paperWidthMm, NfceInfo? fiscal = null)
     {
         // Bobina de 80 mm ≈ 48 colunas; 58 mm ≈ 32 colunas (fonte monoespaçada).
         var columns = paperWidthMm >= 80 ? 48 : 32;
@@ -79,16 +83,35 @@ public sealed class ReceiptPrinter(IConfiguration configuration)
         void Pair(string left, string right, bool bold = false) => Add(Justify(left, right, columns), bold);
         void Line() => Add(new string('-', columns));
 
+        var isDanfe = fiscal is { Status: FiscalDocumentStatus.Authorized or FiscalDocumentStatus.Contingency };
+
         Add(r.CompanyName, bold: true, center: true);
-        if (!string.IsNullOrEmpty(r.Cnpj)) Add($"CNPJ {FormatCnpj(r.Cnpj)}", center: true);
-        Add(r.StoreName, center: true);
+        if (!string.IsNullOrEmpty(r.Cnpj)) Add($"CNPJ {TaxDocuments.Format(r.Cnpj)}", center: true);
+        if (isDanfe && r.CompanyAddress is { } address)
+            foreach (var chunk in Wrap(address, columns)) Add(chunk, center: true);
+        else Add(r.StoreName, center: true);
         Line();
-        Add("COMPROVANTE NÃO FISCAL", bold: true, center: true);
+        if (isDanfe)
+        {
+            Add("DANFE NFC-e - Documento Auxiliar", bold: true, center: true);
+            Add("da Nota Fiscal de Consumidor Eletrônica", bold: true, center: true);
+            if (fiscal!.Environment == FiscalEnvironment.Homologation)
+            {
+                Add("EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO", bold: true, center: true);
+                Add("SEM VALOR FISCAL", bold: true, center: true);
+            }
+            if (fiscal.Status == FiscalDocumentStatus.Contingency)
+            {
+                Add("EMITIDA EM CONTINGÊNCIA", bold: true, center: true);
+                Add("Pendente de autorização", center: true);
+            }
+        }
+        else Add("COMPROVANTE NÃO FISCAL", bold: true, center: true);
         if (r.Status == SaleStatus.Cancelled) Add("*** VENDA CANCELADA ***", bold: true, center: true);
         Pair($"Venda nº {r.Number}", $"Caixa {r.TerminalCode}");
         Add(r.CompletedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", PtBr));
         Add($"Operador: {r.OperatorName}");
-        if (r.CustomerDocument is { } customer)
+        if (!isDanfe && r.CustomerDocument is { } customer)
             Add($"Consumidor: {(customer.Length == 11 ? "CPF" : "CNPJ")} {TaxDocuments.Format(customer)}");
         Line();
 
@@ -110,9 +133,58 @@ public sealed class ReceiptPrinter(IConfiguration configuration)
         foreach (var p in r.Payments) Pair(p.Label, p.Amount.ToString("N2", PtBr));
         if (r.Change > 0) Pair("Troco", r.Change.ToString("N2", PtBr), bold: true);
         Line();
+
+        if (isDanfe)
+        {
+            AddFiscalFooter(doc, r, fiscal!, columns, Add, Line);
+            return doc;
+        }
         Add("Obrigado pela preferência!", center: true);
         Add("Este documento não tem valor fiscal.", center: true);
         return doc;
+    }
+
+    /// <summary>Rodapé do DANFE NFC-e: consulta pela chave, consumidor, número/série, protocolo e QR Code.</summary>
+    private static void AddFiscalFooter(FlowDocument doc, ReceiptData r, NfceInfo fiscal, int columns,
+        Action<string, bool, bool> add, Action line)
+    {
+        add("Consulte pela Chave de Acesso em", false, true);
+        foreach (var chunk in WrapAt(fiscal.ConsultationUrl ?? "", columns, '/')) add(chunk, false, true);
+        var groups = AccessKey.Format(fiscal.AccessKey).Split(' ');
+        add(string.Join(' ', groups[..6]), true, true);
+        add(string.Join(' ', groups[6..]), true, true);
+        line();
+        add(r.CustomerDocument is { } c ? $"CONSUMIDOR {(c.Length == 11 ? "CPF" : "CNPJ")} {TaxDocuments.Format(c)}" : "CONSUMIDOR NÃO IDENTIFICADO",
+            true, true);
+        line();
+        add($"NFC-e nº {fiscal.Number:000000000} Série {fiscal.Series:000}", true, true);
+        add((fiscal.IssuedAt ?? r.CompletedAt).ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", PtBr), false, true);
+        if (fiscal.Status == FiscalDocumentStatus.Authorized)
+        {
+            add($"Protocolo de autorização: {fiscal.Protocol}", false, true);
+            add($"Data de autorização: {fiscal.AuthorizedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", PtBr)}", false, true);
+        }
+        else
+        {
+            add("Via do consumidor - nota em contingência", false, true);
+        }
+
+        if (fiscal.QrCodeUrl is { } qr)
+        {
+            using var generator = new QRCodeGenerator();
+            using var data = generator.CreateQrCode(qr, QRCodeGenerator.ECCLevel.M);
+            var png = new PngByteQRCode(data).GetGraphic(8);
+            var image = new BitmapImage();
+            using (var stream = new System.IO.MemoryStream(png))
+            {
+                image.BeginInit();
+                image.CacheOption = BitmapCacheOption.OnLoad;
+                image.StreamSource = stream;
+                image.EndInit();
+            }
+            image.Freeze();
+            doc.Blocks.Add(new BlockUIContainer(new Image { Source = image, Width = 150, Height = 150, Margin = new Thickness(0, 8, 0, 8) }));
+        }
     }
 
     internal static string Justify(string left, string right, int columns)
@@ -125,12 +197,23 @@ public sealed class ReceiptPrinter(IConfiguration configuration)
     private static string Center(string text, int columns) =>
         text.Length >= columns ? text[..columns] : new string(' ', (columns - text.Length) / 2) + text;
 
+    /// <summary>Quebra preferindo o caractere indicado (ex.: "/" em URLs), para não cortar palavras.</summary>
+    private static IEnumerable<string> WrapAt(string text, int columns, char breakAfter)
+    {
+        while (text.Length > columns)
+        {
+            var cut = text.LastIndexOf(breakAfter, columns - 1);
+            cut = cut <= 0 ? columns : cut + 1;
+            yield return text[..cut];
+            text = text[cut..];
+        }
+        if (text.Length > 0) yield return text;
+    }
+
     private static IEnumerable<string> Wrap(string text, int columns)
     {
         for (var i = 0; i < text.Length; i += columns)
             yield return text.Substring(i, Math.Min(columns, text.Length - i));
     }
 
-    private static string FormatCnpj(string digits) =>
-        digits.Length == 14 ? $"{digits[..2]}.{digits[2..5]}.{digits[5..8]}/{digits[8..12]}-{digits[12..]}" : digits;
 }

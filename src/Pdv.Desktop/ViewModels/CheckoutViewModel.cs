@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Pdv.Application;
 using Pdv.Application.Cash;
 using Pdv.Application.Catalog;
+using Pdv.Application.Fiscal;
 using Pdv.Application.Sales;
 using Pdv.Desktop.Services;
 using Pdv.Desktop.Views;
@@ -44,7 +45,8 @@ public partial class CheckoutViewModel(
     IDialogService dialogs,
     SupervisorAuthorizer authorizer,
     ReceiptPrinter printer,
-    Func<AdminViewModel> adminFactory) : ObservableObject
+    Func<AdminViewModel> adminFactory,
+    INfceSettingsStore nfceSettings) : ObservableObject
 {
     // Chave de idempotência do carrinho atual. Só muda depois de uma venda concluída ou carrinho descartado,
     // então reenviar após timeout/erro de rede nunca duplica a venda.
@@ -355,25 +357,84 @@ public partial class CheckoutViewModel(
             receipt.Number, receipt.SaleId, receipt.Total, receipt.AlreadyProcessed);
         ResetCart(receipt.Change > 0 ? $"Venda nº {receipt.Number} concluída. TROCO: {receipt.Change:C}" : $"Venda nº {receipt.Number} concluída.");
         await RefreshCashAsync();
-        await PrintAfterSaleAsync(receipt);
+        var fiscal = await IssueNfceAsync(receipt);
+        await PrintAfterSaleAsync(receipt, fiscal);
+    }
+
+    /// <summary>
+    /// Emite a NFC-e da venda recém-concluída. A venda já está gravada: falha fiscal nunca desfaz a venda,
+    /// apenas avisa (rejeição) ou deixa a nota na fila (contingência / sem resposta).
+    /// </summary>
+    private async Task<NfceInfo?> IssueNfceAsync(SaleReceipt sale)
+    {
+        if (!nfceSettings.Load().Enabled) return null;
+        Result<NfceInfo> result;
+        try
+        {
+            result = await runner.RunAsync<NfceService, Result<NfceInfo>>(s => s.IssueForSaleAsync(sale.SaleId));
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Falha inesperada ao emitir NFC-e da venda {Number}", sale.Number);
+            dialogs.ShowError($"A venda foi concluída, mas a NFC-e não pôde ser emitida: {ex.Message}\nReenvie em Retaguarda › NFC-e.");
+            return null;
+        }
+
+        if (!result.Succeeded)
+        {
+            dialogs.ShowError($"A venda foi concluída, mas a NFC-e não foi emitida:\n{result.Error}");
+            return null;
+        }
+
+        var nfce = result.Value!;
+        Log.Information("NFC-e {Number} da venda {Sale}: {Status} {Code} {Message}", nfce.Number, sale.Number, nfce.Status,
+            nfce.StatusCode, nfce.StatusMessage);
+        StatusMessage += nfce.Status switch
+        {
+            FiscalDocumentStatus.Authorized => $"  ·  NFC-e nº {nfce.Number} autorizada.",
+            FiscalDocumentStatus.Contingency => $"  ·  NFC-e nº {nfce.Number} em contingência (será transmitida).",
+            FiscalDocumentStatus.Unknown => $"  ·  NFC-e nº {nfce.Number} sem resposta da SEFAZ (será consultada).",
+            _ => $"  ·  NFC-e nº {nfce.Number}: {nfce.Status}.",
+        };
+        if (nfce.Status is FiscalDocumentStatus.Rejected or FiscalDocumentStatus.Denied)
+            dialogs.ShowError($"NFC-e nº {nfce.Number} {(nfce.Status == FiscalDocumentStatus.Denied ? "denegada" : "rejeitada")} pela SEFAZ:\n" +
+                $"{nfce.StatusCode} - {nfce.StatusMessage}\n\nA venda está gravada. Corrija o cadastro e reenvie em Retaguarda › NFC-e.");
+
+        // SEFAZ respondendo: aproveita para transmitir notas antigas que ficaram na fila (sem travar o caixa).
+        if (nfce.Status == FiscalDocumentStatus.Authorized) _ = TransmitPendingInBackgroundAsync();
+        return nfce;
+    }
+
+    private async Task TransmitPendingInBackgroundAsync()
+    {
+        try
+        {
+            var sent = await Task.Run(() => runner.RunAsync<NfceService, int>(s => s.ProcessPendingAsync()));
+            if (sent > 0) Log.Information("{Count} NFC-e pendente(s) autorizada(s) em segundo plano", sent);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Falha ao transmitir NFC-e pendentes em segundo plano");
+        }
     }
 
     private bool CanFinalize() => !IsBusy && Items.Count > 0;
 
     // ---------- Comprovante e vendas gravadas ----------
 
-    private async Task PrintAfterSaleAsync(SaleReceipt sale)
+    private async Task PrintAfterSaleAsync(SaleReceipt sale, NfceInfo? fiscal)
     {
         var mode = printer.Options.Mode;
         if (mode == ReceiptPrintMode.Never) return;
         var change = sale.Change > 0 ? $"TROCO: {sale.Change:C}\n\n" : "";
-        if (mode == ReceiptPrintMode.Ask && !dialogs.Confirm($"{change}Imprimir comprovante?")) return;
+        var what = fiscal is { Status: FiscalDocumentStatus.Authorized or FiscalDocumentStatus.Contingency } ? "o DANFE da NFC-e" : "o comprovante";
+        if (mode == ReceiptPrintMode.Ask && !dialogs.Confirm($"{change}Imprimir {what}?")) return;
 
         var data = await runner.RunAsync<SalesQueryService, ReceiptData?>(q => q.GetReceiptAsync(sale.SaleId));
         if (data is null) return;
         try
         {
-            printer.Print(data);
+            printer.Print(data, fiscal);
         }
         catch (Exception ex)
         {
@@ -388,7 +449,8 @@ public partial class CheckoutViewModel(
         var sale = await PickRecentSaleAsync("Reimprimir comprovante", onlyCompleted: false);
         if (sale is null) return;
         var data = await runner.RunAsync<SalesQueryService, ReceiptData?>(q => q.GetReceiptAsync(sale.Id));
-        if (data is not null) dialogs.ShowReceipt(data);
+        var fiscal = await runner.RunAsync<NfceService, NfceInfo?>(s => s.GetBySaleAsync(sale.Id));
+        if (data is not null) dialogs.ShowReceipt(data, fiscal);
     }
 
     [RelayCommand]
@@ -398,16 +460,33 @@ public partial class CheckoutViewModel(
         var sale = await PickRecentSaleAsync("Cancelar venda", onlyCompleted: true);
         if (sale is null) return;
 
-        var reason = dialogs.Prompt("Cancelar venda", $"Venda nº {sale.Number} — {sale.Total:C}\nMotivo do cancelamento:");
+        // Venda com NFC-e: a nota é cancelada na SEFAZ primeiro; se a SEFAZ recusar, a venda continua válida.
+        var fiscal = await runner.RunAsync<NfceService, NfceInfo?>(s => s.GetBySaleAsync(sale.Id));
+        if (fiscal is { Status: FiscalDocumentStatus.Pending or FiscalDocumentStatus.Unknown or FiscalDocumentStatus.Contingency })
+        {
+            dialogs.ShowError($"A NFC-e nº {fiscal.Number} desta venda ainda não foi autorizada.\nTransmita as pendentes (Retaguarda › NFC-e) antes de cancelar.");
+            return;
+        }
+        var hasAuthorizedNfce = fiscal is { Status: FiscalDocumentStatus.Authorized };
+
+        var reason = dialogs.Prompt("Cancelar venda", $"Venda nº {sale.Number} — {sale.Total:C}\nMotivo do cancelamento" +
+            (hasAuthorizedNfce ? " (vai para a SEFAZ, mínimo 15 caracteres):" : ":"));
         if (string.IsNullOrWhiteSpace(reason)) return;
+        if (hasAuthorizedNfce && reason.Trim().Length < 15) { dialogs.ShowError("Para cancelar a NFC-e o motivo precisa ter pelo menos 15 caracteres."); return; }
 
         var authorizerId = await authorizer.AuthorizeAsync(Permissions.CancelSale, "O cancelamento");
         if (authorizerId is null) return;
 
+        if (hasAuthorizedNfce)
+        {
+            var nfce = await runner.RunAsync<NfceService, Result<NfceInfo>>(s => s.CancelAsync(sale.Id, reason, authorizerId.Value));
+            if (!nfce.Succeeded) { dialogs.ShowError($"A NFC-e não foi cancelada, então a venda foi mantida:\n{nfce.Error}"); return; }
+        }
+
         var result = await runner.RunAsync<CheckoutService, Result<Guid>>(c => c.CancelAsync(sale.Id, reason, authorizerId.Value));
         if (!result.Succeeded) { dialogs.ShowError(result.Error!); return; }
 
-        StatusMessage = $"Venda nº {sale.Number} cancelada. Estoque e caixa estornados.";
+        StatusMessage = $"Venda nº {sale.Number} cancelada{(hasAuthorizedNfce ? " (NFC-e cancelada na SEFAZ)" : "")}. Estoque e caixa estornados.";
         await RefreshCashAsync();
     }
 
@@ -498,6 +577,7 @@ public partial class CheckoutViewModel(
     {
         if (!CanOpenAdmin) { dialogs.ShowError("Seu usuário não tem acesso à retaguarda."); return; }
         var vm = adminFactory();
+        vm.AttachNfceStore(nfceSettings);
         var window = new AdminWindow(vm) { Owner = System.Windows.Application.Current.MainWindow };
         await vm.LoadAsync();
         window.ShowDialog();

@@ -39,6 +39,42 @@ internal sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
     }
 }
 
+internal sealed class FiscalDocumentConfiguration : IEntityTypeConfiguration<FiscalDocument>
+{
+    public void Configure(EntityTypeBuilder<FiscalDocument> b)
+    {
+        b.Property(x => x.AccessKey).HasMaxLength(44);
+        b.Property(x => x.Protocol).HasMaxLength(20);
+        b.Property(x => x.StatusMessage).HasMaxLength(500);
+        b.Property(x => x.ContingencyReason).HasMaxLength(256);
+        b.Property(x => x.CancellationProtocol).HasMaxLength(20);
+        b.Property(x => x.CancellationReason).HasMaxLength(255);
+        b.Property(x => x.QrCodeUrl).HasMaxLength(1000);
+        b.Property(x => x.ConsultationUrl).HasMaxLength(500);
+        b.Ignore(x => x.IsFinal);
+        b.Ignore(x => x.NeedsTransmission);
+        // Concorrência: duas tentativas simultâneas de transmitir a mesma nota não sobrescrevem uma à outra.
+        b.Property<uint>("Version").IsRowVersion();
+        // Uma NFC-e por venda; um número por série/ambiente/loja.
+        b.HasIndex(x => x.SaleId).IsUnique();
+        b.HasIndex(x => new { x.StoreId, x.Environment, x.Model, x.Series, x.Number }).IsUnique();
+        b.HasIndex(x => x.AccessKey);
+        b.HasIndex(x => x.Status);
+        b.HasOne<Sale>().WithMany().HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<Store>().WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class FiscalSeriesConfiguration : IEntityTypeConfiguration<FiscalSeries>
+{
+    public void Configure(EntityTypeBuilder<FiscalSeries> b)
+    {
+        b.Property<uint>("Version").IsRowVersion();
+        b.HasIndex(x => new { x.StoreId, x.Environment, x.Model, x.Series }).IsUnique();
+        b.HasOne<Store>().WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 internal sealed class TaxProfileConfiguration : IEntityTypeConfiguration<TaxProfile>
 {
     public void Configure(EntityTypeBuilder<TaxProfile> b)

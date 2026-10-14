@@ -28,7 +28,8 @@ public sealed record ReceiptData(
     IReadOnlyList<ReceiptPayment> Payments,
     decimal Change,
     SaleStatus Status,
-    string? CustomerDocument = null);
+    string? CustomerDocument = null,
+    string? CompanyAddress = null);
 
 public static class PaymentLabels
 {
@@ -60,11 +61,15 @@ public sealed class SalesQueryService(IPdvDbContext db)
         if (sale is null) return null;
 
         var header = await (
-            from t in db.Terminals
-            join st in db.Stores on t.StoreId equals st.Id
-            join c in db.Companies on st.CompanyId equals c.Id
+            // Sem rastreamento: o endereço é um tipo "owned" e não pode ser projetado sozinho numa consulta rastreada.
+            from t in db.Terminals.AsNoTracking()
+            join st in db.Stores.AsNoTracking() on t.StoreId equals st.Id
+            join c in db.Companies.AsNoTracking() on st.CompanyId equals c.Id
             where t.Id == sale.TerminalId
-            select new { c.LegalName, c.Cnpj, StoreName = st.Name, t.Code }).SingleAsync(ct);
+            select new { c.LegalName, c.Cnpj, StoreName = st.Name, t.Code, c.Address }).SingleAsync(ct);
+        var address = header.Address is { } a
+            ? $"{a.Street}, {a.Number}{(a.Complement is null ? "" : " " + a.Complement)} - {a.District} - {a.City}/{a.Uf}"
+            : null;
         var operatorName = await db.Users.Where(u => u.Id == sale.OperatorUserId).Select(u => u.DisplayName).SingleAsync(ct);
 
         return new ReceiptData(
@@ -73,6 +78,6 @@ public sealed class SalesQueryService(IPdvDbContext db)
                 .Select(i => new ReceiptLine(i.LineNumber, i.Description, i.Quantity, i.Unit, i.UnitPrice, i.Discount, i.Total)).ToList(),
             sale.Subtotal, sale.DiscountTotal, sale.Total,
             sale.Payments.Select(p => new ReceiptPayment(p.Method, p.Amount)).ToList(),
-            sale.ChangeAmount, sale.Status, sale.CustomerDocument);
+            sale.ChangeAmount, sale.Status, sale.CustomerDocument, address);
     }
 }

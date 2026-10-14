@@ -22,6 +22,8 @@ public interface IPdvDbContext
     DbSet<Product> Products { get; }
     DbSet<ProductBarcode> ProductBarcodes { get; }
     DbSet<TaxProfile> TaxProfiles { get; }
+    DbSet<FiscalDocument> FiscalDocuments { get; }
+    DbSet<FiscalSeries> FiscalSeries { get; }
     DbSet<StockMovement> StockMovements { get; }
     DbSet<CashSession> CashSessions { get; }
     DbSet<CashMovement> CashMovements { get; }

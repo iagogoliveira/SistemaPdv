@@ -8,9 +8,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Pdv.Application;
+using Pdv.Application.Fiscal;
 using Pdv.Desktop.Services;
 using Pdv.Desktop.ViewModels;
 using Pdv.Desktop.Views;
+using Pdv.Fiscal;
 using Pdv.Infrastructure;
 using Pdv.Infrastructure.Persistence;
 using Serilog;
@@ -152,6 +154,13 @@ public partial class App : System.Windows.Application
         builder.Services.AddSingleton<AppState>();
         builder.Services.AddSingleton<ScopedRunner>();
         builder.Services.AddSingleton<ReceiptPrinter>();
+        // Desenvolvimento/treinamento: SEFAZ simulada (XML e assinatura reais, nada é enviado; só homologação).
+        if (builder.Configuration.GetValue<bool>("Pdv:Fiscal:Simulator"))
+            builder.Services.AddSingleton<INfceGateway>(_ => new SimulatedNfceGateway(new ZeusNfceGateway()));
+        else
+            builder.Services.AddSingleton<INfceGateway, ZeusNfceGateway>();
+        builder.Services.AddSingleton<INfceSettingsStore>(_ =>
+            new MachineNfceSettingsStore(builder.Configuration["Pdv:Fiscal:SettingsFile"]));
         builder.Services.AddSingleton<IDialogService, DialogService>();
         builder.Services.AddSingleton<SupervisorAuthorizer>();
         builder.Services.AddTransient<LoginViewModel>();

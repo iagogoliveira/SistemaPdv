@@ -120,6 +120,22 @@ Na retaguarda (perfil Administrador, permissão `company.manage`):
 Na venda, cada item grava um retrato fiscal (NCM, CFOP, CSOSN/CST, alíquotas) e a venda grava o CPF/CNPJ do
 consumidor — é a base para montar o XML da NFC-e na Etapa 3.
 
+### NFC-e (Etapa 3)
+
+Ativada por computador em **Retaguarda › NFC-e**: ambiente (homologação/produção), série, certificado A1 (.pfx, copiado
+para `%ProgramData%\SistemaPDV`) e CSC. A senha do certificado e o CSC ficam cifrados com DPAPI (`nfce.json`).
+
+- A venda é gravada primeiro; a NFC-e é emitida em seguida e **nunca desfaz a venda**. Rejeição avisa o operador e a
+  nota pode ser corrigida e reenviada na retaguarda.
+- Sem resposta da SEFAZ: a nota é consultada pela chave antes de qualquer reenvio. SEFAZ fora do ar: emissão em
+  **contingência offline** (tpEmis 9), DANFE impresso com aviso, transmissão automática quando a SEFAZ voltar.
+- Cancelamento da venda (F7) cancela antes a NFC-e na SEFAZ (justificativa ≥ 15 caracteres, dentro do prazo).
+- **SEFAZ simulada** (`Pdv:Fiscal:Simulator = true`, ligada no ambiente Development): monta e assina o XML real, mas
+  nada é enviado e só funciona em homologação — para desenvolvimento, demonstração e treinamento.
+
+Para homologar de verdade é preciso: certificado A1 da empresa, credenciamento como emissor de NFC-e na SEFAZ da UF
+e o CSC de homologação. Biblioteca fiscal: DFe.NET (LGPL 2.1), ver `THIRD-PARTY-NOTICES.md`.
+
 ### Comprovante
 
 Comprovante **não fiscal** impresso pelo driver do Windows, em largura de bobina (48 colunas em 80 mm,

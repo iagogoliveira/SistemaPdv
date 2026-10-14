@@ -2,6 +2,7 @@ using System.Collections;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Pdv.Application;
+using Pdv.Application.Fiscal;
 using Pdv.Application.Identity;
 using Pdv.Application.Sales;
 using Pdv.Desktop.Views;
@@ -67,8 +68,9 @@ public interface IDialogService
     (string Username, string Password)? PromptCredentials(string title, string message);
     T? Pick<T>(string title, IEnumerable<T> items, IReadOnlyList<GridColumn> columns, Func<T, bool>? canSelect = null) where T : class;
     void ShowGrid(string title, IEnumerable items, IReadOnlyList<GridColumn> columns);
-    void ShowReceipt(ReceiptData receipt);
+    void ShowReceipt(ReceiptData receipt, NfceInfo? fiscal = null);
     bool Confirm(string message);
+    string? PickFile(string title, string filter);
 }
 
 public sealed class DialogService(ReceiptPrinter printer) : IDialogService
@@ -109,10 +111,16 @@ public sealed class DialogService(ReceiptPrinter printer) : IDialogService
     public void ShowGrid(string title, IEnumerable items, IReadOnlyList<GridColumn> columns) =>
         new GridDialog(title, items, columns, selectable: false) { Owner = Owner }.ShowDialog();
 
-    public void ShowReceipt(ReceiptData receipt) =>
-        new ReceiptPreviewWindow(receipt, printer, this) { Owner = Owner }.ShowDialog();
+    public void ShowReceipt(ReceiptData receipt, NfceInfo? fiscal = null) =>
+        new ReceiptPreviewWindow(receipt, printer, this, fiscal) { Owner = Owner }.ShowDialog();
 
     public bool Confirm(string message) => new ConfirmDialog(message) { Owner = Owner }.ShowDialog() == true;
+
+    public string? PickFile(string title, string filter)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog { Title = title, Filter = filter, CheckFileExists = true };
+        return dialog.ShowDialog(Owner) == true ? dialog.FileName : null;
+    }
 
     private static void Show(string message, MessageBoxImage image)
     {

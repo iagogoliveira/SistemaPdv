@@ -478,6 +478,135 @@
                     </DockPanel>
                 </Border>
             </TabItem>
+            <!-- ===== NFC-e ===== -->
+            <TabItem Visibility="{Binding CanManageCompany, Converter={StaticResource BoolToVisibility}}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:IconView Data="{StaticResource Icon.Shield}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"
+                                     Width="18" Height="18" Margin="0,0,8,0" />
+                        <TextBlock Text="NFC-e" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="370" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Configuração -->
+                    <Border Style="{StaticResource Card}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="Configuração deste computador" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
+                                <CheckBox Content="Emitir NFC-e nas vendas" IsChecked="{Binding NfceEnabled}" FontWeight="SemiBold" Margin="0,0,0,12" />
+
+                                <TextBlock Text="Ambiente" Style="{StaticResource Caption}" />
+                                <ComboBox ItemsSource="{Binding Environments}" SelectedItem="{Binding NfceEnvironment}" DisplayMemberPath="Label" Margin="0,4,0,12" />
+
+                                <TextBlock Text="Série" Style="{StaticResource Caption}" />
+                                <TextBox Text="{Binding NfceSeries, UpdateSourceTrigger=PropertyChanged}" Width="100" HorizontalAlignment="Left" Margin="0,4,0,12" MaxLength="3" />
+
+                                <TextBlock Text="Certificado digital A1 (.pfx)" Style="{StaticResource Caption}" />
+                                <DockPanel Margin="0,4,0,8">
+                                    <ui:IconButton DockPanel.Dock="Right" Icon="{StaticResource Icon.Search}" Content="Escolher" Command="{Binding BrowseCertificateCommand}" Margin="8,0,0,0" />
+                                    <TextBox Text="{Binding CertificatePath, Mode=OneWay}" IsReadOnly="True" Tag="nenhum certificado" />
+                                </DockPanel>
+                                <TextBlock Style="{StaticResource Caption}">
+                                    <TextBlock.Text>Senha do certificado</TextBlock.Text>
+                                </TextBlock>
+                                <PasswordBox x:Name="CertPasswordBox" Margin="0,4,0,2" PasswordChanged="OnCertPasswordChanged" />
+                                <TextBlock Text="Já informada — deixe vazio para manter." FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,12"
+                                           Visibility="{Binding HasCertificatePassword, Converter={StaticResource BoolToVisibility}}" />
+
+                                <TextBlock Text="CSC (Código de Segurança do Contribuinte)" Style="{StaticResource Caption}" />
+                                <Grid Margin="0,4,0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding CscId, UpdateSourceTrigger=PropertyChanged}" Tag="ID ex.: 000001" MaxLength="6" />
+                                    <PasswordBox x:Name="CscTokenBox" Grid.Column="2" PasswordChanged="OnCscTokenChanged" />
+                                </Grid>
+                                <TextBlock Text="Código já informado — deixe vazio para manter." FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,12"
+                                           Visibility="{Binding HasCscToken, Converter={StaticResource BoolToVisibility}}" />
+
+                                <Border Background="{StaticResource BrandSoftBrush}" CornerRadius="8" Padding="12,10" Margin="0,4,0,12">
+                                    <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource TextSecondaryBrush}"
+                                               Text="O CSC é gerado no portal da SEFAZ do seu estado (um para homologação e outro para produção). A senha do certificado e o CSC ficam cifrados neste computador." />
+                                </Border>
+
+                                <WrapPanel>
+                                    <ui:IconButton Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Check}" Content="Salvar"
+                                                   Command="{Binding SaveNfceSettingsCommand}" Margin="0,0,8,0" />
+                                    <ui:IconButton Icon="{StaticResource Icon.Power}" Content="Testar SEFAZ" Command="{Binding TestSefazCommand}" Margin="0" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Notas emitidas -->
+                    <Border Grid.Column="2" Style="{StaticResource Card}">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                                <TextBlock Text="NFC-e recentes" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding NfceStatus}" Foreground="{StaticResource MutedBrush}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
+                            <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                                <ui:IconButton Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.CashOut}" Content="Transmitir pendentes"
+                                               Command="{Binding TransmitPendingNfceCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Icon="{StaticResource Icon.Undo}" Content="Reenviar selecionada" Command="{Binding RetrySelectedNfceCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Icon="{StaticResource Icon.Receipt}" Content="Ver DANFE" Command="{Binding ShowSelectedDanfeCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Style="{StaticResource DangerIconButton}" Icon="{StaticResource Icon.XCircle}" Content="Cancelar NFC-e"
+                                               Command="{Binding CancelSelectedNfceCommand}" Margin="0" />
+                            </WrapPanel>
+                            <DataGrid ItemsSource="{Binding NfceDocuments}" SelectedItem="{Binding SelectedNfce}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="NFC-E" Binding="{Binding Number}" Width="95" />
+                                    <DataGridTextColumn Header="SÉRIE" Binding="{Binding Series}" Width="52" />
+                                    <DataGridTextColumn Header="VENDA" Binding="{Binding SaleNumber}" Width="66" />
+                                    <DataGridTextColumn Header="EMISSÃO" Binding="{Binding When}" Width="104" />
+                                    <DataGridTextColumn Header="TOTAL" Binding="{Binding Total, StringFormat=C}" Width="88" ElementStyle="{StaticResource NumericCell}" />
+                                    <DataGridTemplateColumn Header="SITUAÇÃO" Width="115">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border CornerRadius="10" Padding="8,2" HorizontalAlignment="Left">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{StaticResource WarningSoftBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsOk}" Value="True">
+                                                                    <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsProblem}" Value="True">
+                                                                    <Setter Property="Background" Value="{StaticResource DangerSoftBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding Status}" FontSize="12" FontWeight="SemiBold" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="RETORNO DA SEFAZ" Width="*" MinWidth="180">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Detail}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Detail}" />
+                                                    <TextBlock Text="{Binding Environment}" FontSize="11.5" Foreground="{StaticResource MutedBrush}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

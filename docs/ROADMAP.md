@@ -31,7 +31,7 @@ Cada etapa termina com testes automatizados passando e um critério de aceite ve
 ✅ Cada item vendido guarda NCM, CEST, origem, CFOP, CSOSN/CST e alíquotas; a venda guarda o CPF/CNPJ do consumidor.
 CNPJ alfanumérico (IN RFB 2.229/2024) já aceito. Perfis-modelo vêm com alíquotas zeradas para revisão do contador.
 
-## Etapa 3 — Emissão de NFC-e (homologação)
+## Etapa 3 — Emissão de NFC-e (homologação)  🟡 implementada; falta homologar na SEFAZ real
 
 - Certificado A1 (arquivo .pfx protegido) e CSC por loja.
 - Montagem, assinatura e envio do XML; consulta de status do serviço da SEFAZ.
@@ -41,6 +41,21 @@ CNPJ alfanumérico (IN RFB 2.229/2024) já aceito. Perfis-modelo vêm com alíqu
 - DANFE NFC-e com QR Code na impressora térmica.
 
 **Aceite:** autorização, rejeição, timeout, reenvio sem duplicar e contingência demonstrados em homologação na UF escolhida.
+
+Situação (14/10/2026):
+
+- ✅ Documento fiscal separado da venda, numeração por série/ambiente sem colisão entre caixas, chave de acesso
+  (inclusive com CNPJ alfanumérico), XML 4.00 assinado pela DFe.NET, QR Code v3, URL de consulta.
+- ✅ Reenvio seguro: nota sem resposta é consultada pela chave antes de reenviar; duplicidade (204) vira consulta.
+- ✅ Contingência offline (tpEmis 9) automática quando a SEFAZ não responde, com transmissão posterior.
+- ✅ Rejeição mantém o número e permite corrigir e reenviar; denegação consome o número; cancelamento com prazo.
+- ✅ DANFE NFC-e na impressora térmica, com QR Code; aba NFC-e na retaguarda; SEFAZ simulada para treino.
+- ✅ Todos os cenários do aceite cobertos por testes automatizados contra SEFAZ simulada.
+- ⏳ **Homologação real:** depende do certificado A1 da empresa, do credenciamento como emissor de NFC-e e do
+  CSC de homologação na UF escolhida.
+- ⏳ Inutilização de numeração; validação local pelos XSD oficiais; tributos aproximados (Lei 12.741/IBPT);
+  grupos IBS/CBS da reforma tributária (avaliar obrigatoriedade por regime com o contador);
+  CSOSN 101/201/202/203/900 e CST 10/20/30/51/70/90.
 
 ## Etapa 4 — Operação do dia a dia
 

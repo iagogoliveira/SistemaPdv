@@ -17,6 +17,12 @@ public partial class AdminWindow : Window
             .FirstOrDefault(t => t.Visibility == Visibility.Visible);
     }
 
+    private void OnCertPasswordChanged(object sender, RoutedEventArgs e) =>
+        _viewModel.CertificatePasswordInput = CertPasswordBox.Password;
+
+    private void OnCscTokenChanged(object sender, RoutedEventArgs e) =>
+        _viewModel.CscTokenInput = CscTokenBox.Password;
+
     private void OnTaxProfileDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (_viewModel.CanManageCompany) _viewModel.EditSelectedTaxProfileCommand.Execute(null);

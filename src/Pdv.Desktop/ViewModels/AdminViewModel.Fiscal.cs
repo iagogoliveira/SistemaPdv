@@ -37,6 +37,7 @@ public partial class AdminViewModel
             Company.Load(model, TaxProfiles);
         }
         await RefreshReadinessAsync();
+        await LoadNfceAsync();
     }
 
     private async Task LoadTaxProfilesAsync()

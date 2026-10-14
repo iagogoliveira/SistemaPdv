@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<SalesQueryService>();
         services.AddScoped<CompanySettingsService>();
         services.AddScoped<TaxProfileService>();
+        services.AddScoped<NfceService>();
         services.AddScoped<ProductLookupService>();
         services.AddScoped<CashService>();
         services.AddScoped<CheckoutService>();
