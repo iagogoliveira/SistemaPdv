@@ -27,7 +27,8 @@ public sealed record ReceiptData(
     decimal Total,
     IReadOnlyList<ReceiptPayment> Payments,
     decimal Change,
-    SaleStatus Status);
+    SaleStatus Status,
+    string? CustomerDocument = null);
 
 public static class PaymentLabels
 {
@@ -72,6 +73,6 @@ public sealed class SalesQueryService(IPdvDbContext db)
                 .Select(i => new ReceiptLine(i.LineNumber, i.Description, i.Quantity, i.Unit, i.UnitPrice, i.Discount, i.Total)).ToList(),
             sale.Subtotal, sale.DiscountTotal, sale.Total,
             sale.Payments.Select(p => new ReceiptPayment(p.Method, p.Amount)).ToList(),
-            sale.ChangeAmount, sale.Status);
+            sale.ChangeAmount, sale.Status, sale.CustomerDocument);
     }
 }

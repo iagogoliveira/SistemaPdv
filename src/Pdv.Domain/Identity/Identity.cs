@@ -11,9 +11,10 @@ public static class Permissions
     public const string AdjustStock = "inventory.adjust";
     public const string ManageUsers = "users.manage";
     public const string ViewReports = "reports.view";
+    public const string ManageCompany = "company.manage";
 
     public static readonly IReadOnlyList<string> All =
-        [ApplyDiscount, CancelSale, ManageCash, ManageProducts, AdjustStock, ManageUsers, ViewReports];
+        [ApplyDiscount, CancelSale, ManageCash, ManageProducts, AdjustStock, ManageUsers, ViewReports, ManageCompany];
 }
 
 public class Role : Entity
@@ -31,6 +32,13 @@ public class Role : Entity
     public List<string> Permissions { get; private set; } = [];
 
     public bool HasPermission(string permission) => Permissions.Contains(permission);
+
+    /// <summary>Usado para manter o Administrador com todas as permissões quando surgem novas.</summary>
+    public void GrantMissing(IEnumerable<string> permissions)
+    {
+        foreach (var p in permissions)
+            if (!Permissions.Contains(p)) Permissions.Add(p);
+    }
 }
 
 public class User : Entity

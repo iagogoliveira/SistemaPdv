@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Pdv.Domain.Common;
+using Pdv.Domain.Fiscal;
 
 namespace Pdv.Domain.Catalog;
 
@@ -61,6 +62,25 @@ public class Product : Entity
     public decimal CostPrice { get; private set; }
     public bool IsActive { get; private set; }
     public IReadOnlyCollection<ProductBarcode> Barcodes => _barcodes;
+
+    // ---- Dados fiscais ----
+    public string? Ncm { get; private set; }
+    public string? Cest { get; private set; }
+    public ProductOrigin Origin { get; private set; }
+
+    /// <summary>Vazio = usa o perfil tributário padrão da empresa.</summary>
+    public Guid? TaxProfileId { get; private set; }
+
+    public bool HasFiscalData => Ncm is not null;
+
+    public void SetFiscalData(string? ncm, string? cest, ProductOrigin origin, Guid? taxProfileId)
+    {
+        if (!Enum.IsDefined(origin)) throw new DomainException("Origem da mercadoria inválida.");
+        Ncm = string.IsNullOrWhiteSpace(ncm) ? null : FiscalCodes.RequireNcm(ncm);
+        Cest = FiscalCodes.OptionalCest(cest);
+        Origin = origin;
+        TaxProfileId = taxProfileId;
+    }
 
     [MemberNotNull(nameof(Name))]
     public void Rename(string name)

@@ -4,9 +4,11 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Pdv.Application;
 using Pdv.Application.Catalog;
+using Pdv.Application.Fiscal;
 using Pdv.Application.Identity;
 using Pdv.Desktop.Services;
 using Pdv.Desktop.Views;
+using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Inventory;
 
@@ -16,6 +18,10 @@ namespace Pdv.Desktop.ViewModels;
 public partial class AdminViewModel(ScopedRunner runner, AppState state, IDialogService dialogs) : ObservableObject
 {
     private Guid ActorId => state.User!.UserId;
+
+    // Acesso para a outra parte da classe (AdminViewModel.Fiscal.cs).
+    private ScopedRunner Runner => runner;
+    private IDialogService Dialogs => dialogs;
 
     public bool CanManageProducts => state.User!.Can(Permissions.ManageProducts);
     public bool CanAdjustStock => state.User!.Can(Permissions.AdjustStock);
@@ -39,6 +45,7 @@ public partial class AdminViewModel(ScopedRunner runner, AppState state, IDialog
     {
         if (ShowProductsTab) await SearchProductsAsync();
         if (CanManageUsers) await LoadUsersAsync();
+        await LoadFiscalAsync();
     }
 
     partial void OnIncludeInactiveChanged(bool value) => SearchProductsCommand.Execute(null);
@@ -64,7 +71,8 @@ public partial class AdminViewModel(ScopedRunner runner, AppState state, IDialog
         if (!Require(CanManageProducts)) return;
 
         var categories = await runner.RunAsync<ProductAdminService, IReadOnlyList<string>>(s => s.ListCategoriesAsync());
-        var form = new ProductForm(categories);
+        var profiles = await runner.RunAsync<TaxProfileService, IReadOnlyList<TaxProfileModel>>(s => s.ListAsync());
+        var form = new ProductForm(categories, profiles);
         if (id is { } productId)
         {
             var model = await runner.RunAsync<ProductAdminService, ProductEditModel?>(s => s.GetAsync(productId));
@@ -252,9 +260,20 @@ public partial class AdminViewModel(ScopedRunner runner, AppState state, IDialog
     }
 }
 
-public partial class ProductForm(IReadOnlyList<string> categories) : ObservableObject
+public partial class ProductForm(IReadOnlyList<string> categories, IReadOnlyList<TaxProfileModel> profiles) : ObservableObject
 {
     public IReadOnlyList<string> Categories { get; } = categories;
+
+    /// <summary>Primeira opção (sem Id) = usar o perfil padrão da empresa.</summary>
+    public IReadOnlyList<Choice<Guid?>> TaxProfiles { get; } =
+        [new(null, "Padrão da empresa"), .. profiles.Select(p => new Choice<Guid?>(p.Id, $"{p.Name}  ·  CFOP {p.Cfop}  ·  {p.IcmsCode}"))];
+
+    public IReadOnlyList<Choice<ProductOrigin>> Origins { get; } = FiscalLabels.Origins;
+
+    [ObservableProperty] private string _ncm = "";
+    [ObservableProperty] private string _cest = "";
+    [ObservableProperty] private Choice<ProductOrigin>? _origin = FiscalLabels.Origins[0];
+    [ObservableProperty] private Choice<Guid?>? _taxProfile;
 
     [ObservableProperty] private string _title = "Novo produto";
     [ObservableProperty] private string _name = "";
@@ -267,6 +286,10 @@ public partial class ProductForm(IReadOnlyList<string> categories) : ObservableO
     public void Load(ProductEditModel m)
     {
         Title = "Editar produto";
+        Ncm = m.Ncm is { Length: 8 } n ? $"{n[..4]}.{n[4..6]}.{n[6..]}" : m.Ncm ?? "";
+        Cest = m.Cest ?? "";
+        Origin = FiscalLabels.Origins.First(o => o.Value == m.Origin);
+        TaxProfile = TaxProfiles.FirstOrDefault(t => t.Value == m.TaxProfileId) ?? TaxProfiles[0];
         Name = m.Name;
         Unit = m.Unit;
         Category = m.CategoryName ?? "";
@@ -288,7 +311,9 @@ public partial class ProductForm(IReadOnlyList<string> categories) : ObservableO
             return false;
         }
         var codes = Barcodes.Split(['\r', '\n', ',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        model = new ProductEditModel(id, Name, Unit, string.IsNullOrWhiteSpace(Category) ? null : Category, sale, cost, codes);
+        model = new ProductEditModel(id, Name, Unit, string.IsNullOrWhiteSpace(Category) ? null : Category, sale, cost, codes,
+            string.IsNullOrWhiteSpace(Ncm) ? null : Ncm, string.IsNullOrWhiteSpace(Cest) ? null : Cest,
+            Origin?.Value ?? ProductOrigin.Nacional, TaxProfile?.Value);
         return true;
     }
 }

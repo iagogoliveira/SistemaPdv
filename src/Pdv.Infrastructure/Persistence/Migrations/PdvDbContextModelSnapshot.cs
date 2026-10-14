@@ -185,6 +185,10 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CategoryId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Cest")
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
                     b.Property<decimal>("CostPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -197,9 +201,21 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
+                    b.Property<string>("Ncm")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<decimal>("SalePrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("TaxProfileId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Unit")
                         .IsRequired()
@@ -211,6 +227,8 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("Name");
+
+                    b.HasIndex("TaxProfileId");
 
                     b.ToTable("Products");
                 });
@@ -258,6 +276,62 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Suppliers");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Fiscal.TaxProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Cfop")
+                        .IsRequired()
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
+                    b.Property<string>("CofinsCst")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<decimal>("CofinsRate")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("numeric(7,4)");
+
+                    b.Property<string>("Csosn")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<string>("IcmsCst")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<decimal>("IcmsRate")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("numeric(7,4)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("PisCst")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<decimal>("PisRate")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("numeric(7,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("TaxProfiles");
                 });
 
             modelBuilder.Entity("Pdv.Domain.Identity.Role", b =>
@@ -414,6 +488,14 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("CustomerDocument")
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)");
+
+                    b.Property<string>("CustomerName")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
                     b.Property<Guid?>("DiscountAuthorizedByUserId")
                         .HasColumnType("uuid");
 
@@ -481,6 +563,26 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Cest")
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
+                    b.Property<string>("Cfop")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
+                    b.Property<string>("CofinsCst")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<decimal>("CofinsRate")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("numeric(7,4)");
+
+                    b.Property<string>("Csosn")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -494,8 +596,33 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<string>("IcmsCst")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<decimal>("IcmsRate")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("numeric(7,4)");
+
                     b.Property<int>("LineNumber")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Ncm")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("PisCst")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<decimal>("PisRate")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("numeric(7,4)");
 
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid");
@@ -539,12 +666,38 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                         .HasMaxLength(14)
                         .HasColumnType("character varying(14)");
 
+                    b.Property<Guid?>("DefaultTaxProfileId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("LegalName")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
+                    b.Property<string>("MunicipalRegistration")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)");
+
+                    b.Property<string>("StateRegistration")
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)");
+
+                    b.Property<string>("TaxRegime")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("TradeName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("DefaultTaxProfileId");
 
                     b.ToTable("Companies");
                 });
@@ -642,6 +795,11 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pdv.Domain.Fiscal.TaxProfile", null)
+                        .WithMany()
+                        .HasForeignKey("TaxProfileId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Pdv.Domain.Catalog.ProductBarcode", b =>
@@ -732,6 +890,76 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                         .HasForeignKey("SaleId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Stores.Company", b =>
+                {
+                    b.HasOne("Pdv.Domain.Fiscal.TaxProfile", null)
+                        .WithMany()
+                        .HasForeignKey("DefaultTaxProfileId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.OwnsOne("Pdv.Domain.Stores.Address", "Address", b1 =>
+                        {
+                            b1.Property<Guid>("CompanyId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("City")
+                                .IsRequired()
+                                .HasMaxLength(60)
+                                .HasColumnType("character varying(60)")
+                                .HasColumnName("AddressCity");
+
+                            b1.Property<string>("CityIbgeCode")
+                                .IsRequired()
+                                .HasMaxLength(7)
+                                .HasColumnType("character varying(7)")
+                                .HasColumnName("AddressCityIbgeCode");
+
+                            b1.Property<string>("Complement")
+                                .HasMaxLength(60)
+                                .HasColumnType("character varying(60)")
+                                .HasColumnName("AddressComplement");
+
+                            b1.Property<string>("District")
+                                .IsRequired()
+                                .HasMaxLength(60)
+                                .HasColumnType("character varying(60)")
+                                .HasColumnName("AddressDistrict");
+
+                            b1.Property<string>("Number")
+                                .IsRequired()
+                                .HasMaxLength(60)
+                                .HasColumnType("character varying(60)")
+                                .HasColumnName("AddressNumber");
+
+                            b1.Property<string>("Street")
+                                .IsRequired()
+                                .HasMaxLength(60)
+                                .HasColumnType("character varying(60)")
+                                .HasColumnName("AddressStreet");
+
+                            b1.Property<string>("Uf")
+                                .IsRequired()
+                                .HasMaxLength(2)
+                                .HasColumnType("character varying(2)")
+                                .HasColumnName("AddressUf");
+
+                            b1.Property<string>("ZipCode")
+                                .IsRequired()
+                                .HasMaxLength(8)
+                                .HasColumnType("character varying(8)")
+                                .HasColumnName("AddressZipCode");
+
+                            b1.HasKey("CompanyId");
+
+                            b1.ToTable("Companies");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CompanyId");
+                        });
+
+                    b.Navigation("Address");
                 });
 
             modelBuilder.Entity("Pdv.Domain.Stores.Store", b =>

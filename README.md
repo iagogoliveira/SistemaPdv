@@ -88,6 +88,7 @@ códigos `7891000000011`, `…028`, `…035`, `…042`, `…059`.
 | `F8` | Reimprime / visualiza o comprovante de uma venda |
 | `F9` ou `Enter` no valor | Lança um pagamento; vários lançamentos = pagamento dividido |
 | `F10` | Finaliza a venda |
+| `F11` | CPF/CNPJ na nota (vazio remove) |
 | `Esc` | Descarta a venda em andamento |
 
 ### Interface
@@ -103,6 +104,21 @@ powershell -ExecutionPolicy Bypass -File tools/generate-icon.ps1
 
 - No caixa, o último item lido fica em destaque para o cliente acompanhar; todas as teclas de função também
   são botões clicáveis (mouse ou tela de toque). Produtos com estoque até 5 aparecem em vermelho na retaguarda.
+
+### Cadastro fiscal (Etapa 2)
+
+Na retaguarda (perfil Administrador, permissão `company.manage`):
+
+- **Empresa:** razão social, CNPJ (numérico ou alfanumérico), IE, regime tributário (CRT 1–4), endereço com código
+  IBGE e perfil tributário padrão.
+- **Tributação:** perfis reutilizáveis com CFOP, CSOSN (Simples/MEI) ou CST do ICMS (regime normal) e PIS/COFINS.
+  O sistema impede perfil incompatível com o regime da empresa. Os dois modelos iniciais vêm com alíquotas zeradas:
+  revise com o contador.
+- **Produto:** NCM, CEST, origem e perfil próprio (ou o padrão da empresa). A aba de produtos avisa quantos itens
+  estão sem NCM.
+
+Na venda, cada item grava um retrato fiscal (NCM, CFOP, CSOSN/CST, alíquotas) e a venda grava o CPF/CNPJ do
+consumidor — é a base para montar o XML da NFC-e na Etapa 3.
 
 ### Comprovante
 

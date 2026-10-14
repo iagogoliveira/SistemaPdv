@@ -19,7 +19,7 @@ Cada etapa termina com testes automatizados passando e um critério de aceite ve
 
 **Aceite:** todos os testes (incluindo concorrência, idempotência e backup/restauração) passando em PostgreSQL. ✅ 32/32 em PostgreSQL 17.11.
 
-## Etapa 2 — Dados da empresa e cadastro fiscal
+## Etapa 2 — Dados da empresa e cadastro fiscal  ✅ concluída
 
 - Tela de empresa/loja: razão social, nome fantasia, CNPJ, IE, endereço, UF, município (código IBGE), regime tributário.
 - Produto: NCM, CEST, origem, CFOP, CSOSN ou CST de ICMS, alíquotas, PIS/COFINS; perfis tributários reutilizáveis
@@ -28,6 +28,8 @@ Cada etapa termina com testes automatizados passando e um critério de aceite ve
 - Cliente opcional na venda: CPF/CNPJ na nota.
 
 **Aceite:** uma venda guarda todos os dados fiscais necessários para montar o XML da NFC-e, mesmo antes da emissão.
+✅ Cada item vendido guarda NCM, CEST, origem, CFOP, CSOSN/CST e alíquotas; a venda guarda o CPF/CNPJ do consumidor.
+CNPJ alfanumérico (IN RFB 2.229/2024) já aceito. Perfis-modelo vêm com alíquotas zeradas para revisão do contador.
 
 ## Etapa 3 — Emissão de NFC-e (homologação)
 

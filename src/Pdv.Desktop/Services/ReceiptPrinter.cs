@@ -6,6 +6,7 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using Microsoft.Extensions.Configuration;
 using Pdv.Application.Sales;
+using Pdv.Domain.Fiscal;
 using Pdv.Domain.Sales;
 
 namespace Pdv.Desktop.Services;
@@ -87,6 +88,8 @@ public sealed class ReceiptPrinter(IConfiguration configuration)
         Pair($"Venda nº {r.Number}", $"Caixa {r.TerminalCode}");
         Add(r.CompletedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", PtBr));
         Add($"Operador: {r.OperatorName}");
+        if (r.CustomerDocument is { } customer)
+            Add($"Consumidor: {(customer.Length == 11 ? "CPF" : "CNPJ")} {TaxDocuments.Format(customer)}");
         Line();
 
         foreach (var line in r.Lines)

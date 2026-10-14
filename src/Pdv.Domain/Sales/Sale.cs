@@ -1,4 +1,5 @@
 using Pdv.Domain.Common;
+using Pdv.Domain.Fiscal;
 
 namespace Pdv.Domain.Sales;
 
@@ -26,6 +27,19 @@ public enum PaymentMethod
     DebitCard,
     Pix,
     Other,
+}
+
+/// <summary>
+/// Retrato fiscal do item no momento da venda: o XML da NFC-e é montado a partir dele, mesmo que o cadastro
+/// do produto ou do perfil tributário mude depois (ou que a emissão ocorra mais tarde, em contingência).
+/// </summary>
+public sealed record ItemFiscalData(
+    string? Ncm, string? Cest, ProductOrigin Origin, string Cfop, string? Csosn, string? IcmsCst, decimal IcmsRate,
+    string PisCst, decimal PisRate, string CofinsCst, decimal CofinsRate)
+{
+    public static ItemFiscalData From(string? ncm, string? cest, ProductOrigin origin, TaxProfile profile) =>
+        new(ncm, cest, origin, profile.Cfop, profile.Csosn, profile.IcmsCst, profile.IcmsRate,
+            profile.PisCst, profile.PisRate, profile.CofinsCst, profile.CofinsRate);
 }
 
 public class Sale : Entity
@@ -69,14 +83,20 @@ public class Sale : Entity
     public decimal Total { get; private set; }
     public decimal ChangeAmount { get; private set; }
 
+    /// <summary>CPF ou CNPJ informado pelo consumidor ("CPF na nota"), sem pontuação.</summary>
+    public string? CustomerDocument { get; private set; }
+
+    public string? CustomerName { get; private set; }
+
     public IReadOnlyCollection<SaleItem> Items => _items;
     public IReadOnlyCollection<Payment> Payments => _payments;
     public decimal PaidTotal => _payments.Sum(p => p.Amount);
 
-    public SaleItem AddItem(Guid productId, string description, string unit, decimal quantity, decimal unitPrice, decimal discount = 0)
+    public SaleItem AddItem(Guid productId, string description, string unit, decimal quantity, decimal unitPrice, decimal discount = 0,
+        ItemFiscalData? fiscal = null)
     {
         EnsureDraft();
-        var item = new SaleItem(Id, _items.Count + 1, productId, description, unit, quantity, unitPrice, discount);
+        var item = new SaleItem(Id, _items.Count + 1, productId, description, unit, quantity, unitPrice, discount, fiscal);
         _items.Add(item);
         Recalculate();
         return item;
@@ -89,6 +109,20 @@ public class Sale : Entity
             ?? throw new DomainException($"Item {lineNumber} não encontrado.");
         _items.Remove(item);
         Recalculate();
+    }
+
+    public void SetCustomer(string? document, string? name)
+    {
+        EnsureDraft();
+        if (string.IsNullOrWhiteSpace(document))
+        {
+            CustomerDocument = null;
+            CustomerName = null;
+            return;
+        }
+        if (!TaxDocuments.IsValidCpfOrCnpj(document)) throw new DomainException("CPF/CNPJ do consumidor inválido.");
+        CustomerDocument = TaxDocuments.Normalize(document);
+        CustomerName = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
     }
 
     public void SetDiscountAuthorizer(Guid userId)
@@ -158,7 +192,7 @@ public class SaleItem : Entity
     private SaleItem() { Description = Unit = null!; }
 
     internal SaleItem(Guid saleId, int lineNumber, Guid productId, string description, string unit,
-        decimal quantity, decimal unitPrice, decimal discount)
+        decimal quantity, decimal unitPrice, decimal discount, ItemFiscalData? fiscal)
     {
         if (quantity <= 0) throw new DomainException("Quantidade deve ser positiva.");
         if (unitPrice < 0) throw new DomainException("Preço unitário não pode ser negativo.");
@@ -173,6 +207,21 @@ public class SaleItem : Entity
         Discount = Money.Round(discount);
         if (Discount < 0 || Discount > GrossTotal) throw new DomainException("Desconto inválido para o item.");
         Total = GrossTotal - Discount;
+
+        if (fiscal is not null)
+        {
+            Ncm = fiscal.Ncm;
+            Cest = fiscal.Cest;
+            Origin = fiscal.Origin;
+            Cfop = fiscal.Cfop;
+            Csosn = fiscal.Csosn;
+            IcmsCst = fiscal.IcmsCst;
+            IcmsRate = fiscal.IcmsRate;
+            PisCst = fiscal.PisCst;
+            PisRate = fiscal.PisRate;
+            CofinsCst = fiscal.CofinsCst;
+            CofinsRate = fiscal.CofinsRate;
+        }
     }
 
     public Guid SaleId { get; private set; }
@@ -185,6 +234,22 @@ public class SaleItem : Entity
     public decimal GrossTotal { get; private set; }
     public decimal Discount { get; private set; }
     public decimal Total { get; private set; }
+
+    // ---- Retrato fiscal (ver ItemFiscalData) ----
+    public string? Ncm { get; private set; }
+    public string? Cest { get; private set; }
+    public ProductOrigin Origin { get; private set; }
+    public string? Cfop { get; private set; }
+    public string? Csosn { get; private set; }
+    public string? IcmsCst { get; private set; }
+    public decimal IcmsRate { get; private set; }
+    public string? PisCst { get; private set; }
+    public decimal PisRate { get; private set; }
+    public string? CofinsCst { get; private set; }
+    public decimal CofinsRate { get; private set; }
+
+    /// <summary>O item tem tudo o que a NFC-e exige (NCM e tributação).</summary>
+    public bool HasFiscalData => Ncm is not null && Cfop is not null;
 }
 
 public class Payment : Entity

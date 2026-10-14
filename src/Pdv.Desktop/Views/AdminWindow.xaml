@@ -17,7 +17,7 @@
                 </Border>
                 <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="Retaguarda" Foreground="White" FontSize="20" FontWeight="Bold" FontFamily="{StaticResource DisplayFont}" />
-                    <TextBlock Text="Produtos, estoque e usuários da loja" Foreground="#BFDBFE" FontSize="12" />
+                    <TextBlock Text="Produtos, estoque, usuários e dados fiscais da loja" Foreground="#BFDBFE" FontSize="12" />
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -33,6 +33,35 @@
                 </TabItem.Header>
                 <Border Style="{StaticResource Card}">
                     <DockPanel>
+                        <Border DockPanel.Dock="Top" CornerRadius="8" Padding="12,10" Margin="0,0,0,12">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{StaticResource WarningSoftBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsFiscalReady}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <ui:IconView Width="18" Height="18" Margin="0,0,10,0">
+                                    <ui:IconView.Style>
+                                        <Style TargetType="ui:IconView" BasedOn="{StaticResource {x:Type ui:IconView}}">
+                                            <Setter Property="Data" Value="{StaticResource Icon.Alert}" />
+                                            <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsFiscalReady}" Value="True">
+                                                    <Setter Property="Data" Value="{StaticResource Icon.Check}" />
+                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ui:IconView.Style>
+                                </ui:IconView>
+                                <TextBlock Text="{Binding FiscalStatus}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                             <CheckBox DockPanel.Dock="Right" Content="Mostrar inativos" IsChecked="{Binding IncludeInactive}" Margin="16,0,0,0" />
                             <ui:IconButton DockPanel.Dock="Right" Icon="{StaticResource Icon.Search}" Content="Buscar"
@@ -90,6 +119,26 @@
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsLowStock}" Value="True">
                                                                 <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="FISCAL" Width="95">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="NCM ok" />
+                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasFiscalData}" Value="False">
+                                                                <Setter Property="Text" Value="Sem NCM" />
+                                                                <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -182,6 +231,232 @@
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock FontWeight="SemiBold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="Ativo" />
+                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                                <Setter Property="Text" Value="Inativo" />
+                                                                <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+            <!-- ===== Empresa (emitente) ===== -->
+            <TabItem Visibility="{Binding CanManageCompany, Converter={StaticResource BoolToVisibility}}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:IconView Data="{StaticResource Icon.Store}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"
+                                     Width="18" Height="18" Margin="0,0,8,0" />
+                        <TextBlock Text="Empresa" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Border Style="{StaticResource Card}" Padding="0">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="16,12">
+                            <DockPanel>
+                                <ui:IconButton DockPanel.Dock="Right" Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Check}"
+                                               Content="Salvar dados da empresa" Command="{Binding SaveCompanyCommand}" Margin="0" />
+                                <TextBlock Text="Estes dados saem no cabeçalho da NFC-e e do comprovante." Foreground="{StaticResource MutedBrush}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Border>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,16">
+                            <Grid DataContext="{Binding Company}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.ColumnSpan="5" Text="Identificação" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
+
+                                <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Margin="0,0,0,12">
+                                    <TextBlock Text="Razão social" Style="{StaticResource Caption}" />
+                                    <TextBox Text="{Binding LegalName, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0" MaxLength="150" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="4" Margin="0,0,0,12">
+                                    <TextBlock Text="Nome fantasia" Style="{StaticResource Caption}" />
+                                    <TextBox Text="{Binding TradeName, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0" MaxLength="150" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Margin="0,0,0,12">
+                                    <TextBlock Text="CNPJ (numérico ou alfanumérico)" Style="{StaticResource Caption}" />
+                                    <TextBox Text="{Binding Cnpj, UpdateSourceTrigger=PropertyChanged}" Tag="00.000.000/0000-00" Margin="0,4,0,0"
+                                             CharacterCasing="Upper" MaxLength="18" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,12">
+                                    <TextBlock Text="Inscrição estadual (ou ISENTO)" Style="{StaticResource Caption}" />
+                                    <TextBox Text="{Binding StateRegistration, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"
+                                             CharacterCasing="Upper" MaxLength="20" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="4" Margin="0,0,0,12">
+                                    <TextBlock Text="Inscrição municipal (opcional)" Style="{StaticResource Caption}" />
+                                    <TextBox Text="{Binding MunicipalRegistration, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0" MaxLength="20" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Margin="0,0,0,12">
+                                    <TextBlock Text="Regime tributário (CRT)" Style="{StaticResource Caption}" />
+                                    <ComboBox ItemsSource="{Binding Regimes}" SelectedItem="{Binding Regime}" DisplayMemberPath="Label" Margin="0,4,0,0" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="3" Grid.Column="4" Margin="0,0,0,12">
+                                    <TextBlock Text="Telefone" Style="{StaticResource Caption}" />
+                                    <TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" Tag="(00) 0000-0000" Margin="0,4,0,0" MaxLength="20" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="4" Grid.ColumnSpan="5" Text="Endereço" Style="{StaticResource SectionTitle}" Margin="0,8,0,10" />
+
+                                <StackPanel Grid.Row="5" Margin="0,0,0,12">
+                                    <TextBlock Text="CEP" Style="{StaticResource Caption}" />
+                                    <TextBox Text="{Binding ZipCode, UpdateSourceTrigger=PropertyChanged}" Tag="00000-000" Margin="0,4,0,0" MaxLength="9" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="5" Grid.Column="2" Grid.ColumnSpan="3" Margin="0,0,0,12">
+                                    <TextBlock Text="Logradouro" Style="{StaticResource Caption}" />
+                                    <TextBox Text="{Binding Street, UpdateSourceTrigger=PropertyChanged}" Tag="Rua, avenida…" Margin="0,4,0,0" MaxLength="60" />
+                                </StackPanel>
+
+                                <Grid Grid.Row="6" Grid.ColumnSpan="5" Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Número" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding Number, UpdateSourceTrigger=PropertyChanged}" Tag="S/N" Margin="0,4,0,0" MaxLength="60" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Complemento" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding Complement, UpdateSourceTrigger=PropertyChanged}" Tag="opcional" Margin="0,4,0,0" MaxLength="60" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Bairro" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding District, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0" MaxLength="60" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Grid.Row="7" Grid.ColumnSpan="5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="160" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="100" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Município" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding City, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0" MaxLength="60" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Código IBGE (7 dígitos)" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding CityIbgeCode, UpdateSourceTrigger=PropertyChanged}" Tag="ex.: 3550308" Margin="0,4,0,0" MaxLength="7" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="UF" Style="{StaticResource Caption}" />
+                                        <ComboBox ItemsSource="{Binding Ufs}" SelectedItem="{Binding Uf}" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock Text="Nome da loja (unidade)" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding StoreName, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0" MaxLength="100" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="8">
+                                        <TextBlock Text="Perfil tributário padrão" Style="{StaticResource Caption}" />
+                                        <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding DefaultProfile}" DisplayMemberPath="Label" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+
+            <!-- ===== Tributação (perfis) ===== -->
+            <TabItem Visibility="{Binding CanManageCompany, Converter={StaticResource BoolToVisibility}}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:IconView Data="{StaticResource Icon.Receipt}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"
+                                     Width="18" Height="18" Margin="0,0,8,0" />
+                        <TextBlock Text="Tributação" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Background="{StaticResource WarningSoftBrush}" CornerRadius="8" Padding="12,10" Margin="0,0,0,12">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:IconView Data="{StaticResource Icon.Alert}" Foreground="{StaticResource WarningBrush}" Width="18" Height="18" Margin="0,0,10,0" />
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                           Text="Perfis agrupam CFOP, ICMS (CSOSN ou CST) e PIS/COFINS. Os modelos iniciais vêm com alíquotas zeradas: revise com o contador antes de emitir notas." />
+                            </StackPanel>
+                        </Border>
+                        <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                            <ui:IconButton Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Plus}" Content="Novo perfil"
+                                           Command="{Binding NewTaxProfileCommand}" Margin="0,0,8,0" />
+                            <ui:IconButton Icon="{StaticResource Icon.Edit}" Content="Editar" Command="{Binding EditSelectedTaxProfileCommand}" Margin="0,0,8,0" />
+                            <ui:IconButton Icon="{StaticResource Icon.Power}" Content="Ativar / desativar" Command="{Binding ToggleTaxProfileActiveCommand}" Margin="0" />
+                        </WrapPanel>
+                        <DataGrid ItemsSource="{Binding TaxProfiles}" SelectedItem="{Binding SelectedTaxProfile}" MouseDoubleClick="OnTaxProfileDoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="PERFIL" Width="2*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                <Border Background="{StaticResource BrandSoftBrush}" CornerRadius="8" Padding="8,1" Margin="10,0,0,0">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsDefault}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="Padrão" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource BrandBrush}" />
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="CFOP" Binding="{Binding Cfop}" Width="70" />
+                                <DataGridTextColumn Header="ICMS" Binding="{Binding IcmsCode}" Width="110" />
+                                <DataGridTextColumn Header="ALÍQ. ICMS" Binding="{Binding IcmsRate, StringFormat={}{0:0.##}%}" Width="95" ElementStyle="{StaticResource NumericCell}" />
+                                <DataGridTextColumn Header="PIS" Binding="{Binding PisCst}" Width="55" />
+                                <DataGridTextColumn Header="ALÍQ. PIS" Binding="{Binding PisRate, StringFormat={}{0:0.##}%}" Width="85" ElementStyle="{StaticResource NumericCell}" />
+                                <DataGridTextColumn Header="COFINS" Binding="{Binding CofinsCst}" Width="70" />
+                                <DataGridTextColumn Header="ALÍQ. COFINS" Binding="{Binding CofinsRate, StringFormat={}{0:0.##}%}" Width="105" ElementStyle="{StaticResource NumericCell}" />
+                                <DataGridTemplateColumn Header="SITUAÇÃO" Width="90">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock FontWeight="SemiBold" HorizontalAlignment="Center">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Setter Property="Text" Value="Ativo" />

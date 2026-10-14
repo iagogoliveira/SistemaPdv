@@ -1,53 +1,119 @@
 <Window x:Class="Pdv.Desktop.Views.ProductEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="{Binding Title}" Width="520" SizeToContent="Height" ResizeMode="NoResize"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" FontSize="14" FontFamily="{StaticResource UiFont}" UseLayoutRounding="True" Background="{StaticResource SurfaceBrush}"
+        xmlns:ui="clr-namespace:Pdv.Desktop.Controls"
+        Title="{Binding Title}" Width="900" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" FontSize="14" FontFamily="{StaticResource UiFont}"
+        UseLayoutRounding="True" Background="{StaticResource BackgroundBrush}"
         FocusManager.FocusedElement="{Binding ElementName=NameBox}">
-    <Grid Margin="20">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="130" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <StackPanel Margin="20">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-        <TextBlock Text="Descrição" VerticalAlignment="Center" />
-        <TextBox x:Name="NameBox" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" MaxLength="120" />
+            <!-- Dados comerciais -->
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <ui:IconView Data="{StaticResource Icon.Box}" Foreground="{StaticResource BrandBrush}" Width="20" Height="20" Margin="0,0,8,0" />
+                        <TextBlock Text="Produto" Style="{StaticResource SectionTitle}" />
+                    </StackPanel>
 
-        <TextBlock Grid.Row="1" Text="Unidade" VerticalAlignment="Center" />
-        <ComboBox Grid.Row="1" Grid.Column="1" IsEditable="True" Text="{Binding Unit}" Margin="0,4" Width="100" HorizontalAlignment="Left">
-            <ComboBoxItem Content="UN" />
-            <ComboBoxItem Content="KG" />
-            <ComboBoxItem Content="L" />
-            <ComboBoxItem Content="M" />
-            <ComboBoxItem Content="CX" />
-            <ComboBoxItem Content="PC" />
-        </ComboBox>
+                    <TextBlock Text="Descrição" Style="{StaticResource Caption}" />
+                    <TextBox x:Name="NameBox" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,12" MaxLength="120" />
 
-        <TextBlock Grid.Row="2" Text="Categoria" VerticalAlignment="Center" />
-        <ComboBox Grid.Row="2" Grid.Column="1" IsEditable="True" ItemsSource="{Binding Categories}" Text="{Binding Category}" Margin="0,4" />
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Unidade" Style="{StaticResource Caption}" />
+                            <ComboBox IsEditable="True" Text="{Binding Unit}" Margin="0,4,0,0">
+                                <ComboBoxItem Content="UN" />
+                                <ComboBoxItem Content="KG" />
+                                <ComboBoxItem Content="L" />
+                                <ComboBoxItem Content="M" />
+                                <ComboBoxItem Content="CX" />
+                                <ComboBoxItem Content="PC" />
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Categoria" Style="{StaticResource Caption}" />
+                            <ComboBox IsEditable="True" ItemsSource="{Binding Categories}" Text="{Binding Category}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Grid>
 
-        <TextBlock Grid.Row="3" Text="Preço de venda" VerticalAlignment="Center" />
-        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SalePrice, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Width="140" HorizontalAlignment="Left" />
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Preço de venda (R$)" Style="{StaticResource Caption}" />
+                            <TextBox Text="{Binding SalePrice, UpdateSourceTrigger=PropertyChanged}" Tag="0,00" Margin="0,4,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Custo (R$)" Style="{StaticResource Caption}" />
+                            <TextBox Text="{Binding CostPrice, UpdateSourceTrigger=PropertyChanged}" Tag="0,00" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Grid>
 
-        <TextBlock Grid.Row="4" Text="Custo" VerticalAlignment="Center" />
-        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CostPrice, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Width="140" HorizontalAlignment="Left" />
+                    <TextBlock Text="Códigos de barras (um por linha)" Style="{StaticResource Caption}" />
+                    <TextBox Text="{Binding Barcodes, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"
+                             AcceptsReturn="True" Height="96" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" />
+                </StackPanel>
+            </Border>
 
-        <TextBlock Grid.Row="5" Text="Códigos de barras&#x0a;(um por linha)" Margin="0,8,0,0" />
-        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Barcodes, UpdateSourceTrigger=PropertyChanged}" Margin="0,4"
-                 AcceptsReturn="True" Height="90" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" />
+            <!-- Dados fiscais -->
+            <Border Grid.Column="2" Style="{StaticResource Card}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <ui:IconView Data="{StaticResource Icon.Receipt}" Foreground="{StaticResource BrandBrush}" Width="20" Height="20" Margin="0,0,8,0" />
+                        <TextBlock Text="Fiscal (NFC-e)" Style="{StaticResource SectionTitle}" />
+                    </StackPanel>
 
-        <StackPanel Grid.Row="6" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="NCM (8 dígitos)" Style="{StaticResource Caption}" />
+                            <TextBox Text="{Binding Ncm, UpdateSourceTrigger=PropertyChanged}" Tag="ex.: 4820.20.00" Margin="0,4,0,0" MaxLength="10" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="CEST (se houver ST)" Style="{StaticResource Caption}" />
+                            <TextBox Text="{Binding Cest, UpdateSourceTrigger=PropertyChanged}" Tag="opcional" Margin="0,4,0,0" MaxLength="9" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Origem da mercadoria" Style="{StaticResource Caption}" />
+                    <ComboBox ItemsSource="{Binding Origins}" SelectedItem="{Binding Origin}" DisplayMemberPath="Label" Margin="0,4,0,12" />
+
+                    <TextBlock Text="Perfil tributário (CFOP, ICMS, PIS/COFINS)" Style="{StaticResource Caption}" />
+                    <ComboBox ItemsSource="{Binding TaxProfiles}" SelectedItem="{Binding TaxProfile}" DisplayMemberPath="Label" Margin="0,4,0,12" />
+
+                    <Border Background="{StaticResource BrandSoftBrush}" CornerRadius="8" Padding="12,10">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:IconView Data="{StaticResource Icon.Info}" Foreground="{StaticResource BrandBrush}" Width="18" Height="18" Margin="0,0,10,0" />
+                            <TextBlock TextWrapping="Wrap" Width="330" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"
+                                       Text="Sem NCM o produto pode ser vendido, mas não sairá em NFC-e. A classificação fiscal deve ser confirmada com o contador." />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,-4,0">
             <Button Content="Cancelar" IsCancel="True" MinWidth="90" />
             <Button Content="Salvar" IsDefault="True" MinWidth="90" Style="{StaticResource PrimaryButton}" Click="OnSave" />
         </StackPanel>
-    </Grid>
+    </StackPanel>
 </Window>

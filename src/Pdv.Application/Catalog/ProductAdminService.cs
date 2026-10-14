@@ -3,13 +3,14 @@ using Pdv.Application.Identity;
 using Pdv.Domain.Auditing;
 using Pdv.Domain.Catalog;
 using Pdv.Domain.Common;
+using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Inventory;
 
 namespace Pdv.Application.Catalog;
 
 public sealed record ProductListItem(Guid Id, string Name, string Unit, string? CategoryName, decimal SalePrice, decimal CostPrice,
-    decimal Stock, string Barcodes, bool IsActive)
+    decimal Stock, string Barcodes, bool IsActive, bool HasFiscalData = false)
 {
     public const decimal LowStockThreshold = 5;
 
@@ -20,7 +21,8 @@ public sealed record ProductListItem(Guid Id, string Name, string Unit, string? 
 }
 
 public sealed record ProductEditModel(Guid? Id, string Name, string Unit, string? CategoryName, decimal SalePrice, decimal CostPrice,
-    IReadOnlyList<string> Barcodes);
+    IReadOnlyList<string> Barcodes, string? Ncm = null, string? Cest = null, ProductOrigin Origin = ProductOrigin.Nacional,
+    Guid? TaxProfileId = null);
 
 public sealed record StockMovementListItem(DateTimeOffset OccurredAt, StockMovementType Type, decimal Quantity, string? Reason, string UserName);
 
@@ -40,7 +42,7 @@ public sealed class ProductAdminService(IPdvDbContext db, PermissionChecker perm
         var rows = await query.OrderBy(p => p.Name).Take(take)
             .Select(p => new
             {
-                p.Id, p.Name, p.Unit, p.SalePrice, p.CostPrice, p.IsActive,
+                p.Id, p.Name, p.Unit, p.SalePrice, p.CostPrice, p.IsActive, p.Ncm,
                 Category = db.Categories.Where(c => c.Id == p.CategoryId).Select(c => c.Name).FirstOrDefault(),
                 Stock = db.StockMovements.Where(m => m.ProductId == p.Id).Sum(m => (decimal?)m.Quantity) ?? 0,
                 Codes = p.Barcodes.Select(b => b.Code).ToList(),
@@ -48,7 +50,7 @@ public sealed class ProductAdminService(IPdvDbContext db, PermissionChecker perm
             .ToListAsync(ct);
 
         return rows.Select(r => new ProductListItem(r.Id, r.Name, r.Unit, r.Category, r.SalePrice, r.CostPrice, r.Stock,
-            string.Join(", ", r.Codes), r.IsActive)).ToList();
+            string.Join(", ", r.Codes), r.IsActive, r.Ncm != null)).ToList();
     }
 
     public async Task<ProductEditModel?> GetAsync(Guid id, CancellationToken ct = default)
@@ -56,7 +58,8 @@ public sealed class ProductAdminService(IPdvDbContext db, PermissionChecker perm
         var p = await db.Products.AsNoTracking().Include(x => x.Barcodes).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (p is null) return null;
         var category = p.CategoryId is null ? null : await db.Categories.Where(c => c.Id == p.CategoryId).Select(c => c.Name).FirstOrDefaultAsync(ct);
-        return new ProductEditModel(p.Id, p.Name, p.Unit, category, p.SalePrice, p.CostPrice, p.Barcodes.Select(b => b.Code).ToList());
+        return new ProductEditModel(p.Id, p.Name, p.Unit, category, p.SalePrice, p.CostPrice, p.Barcodes.Select(b => b.Code).ToList(),
+            p.Ncm, p.Cest, p.Origin, p.TaxProfileId);
     }
 
     public async Task<IReadOnlyList<string>> ListCategoriesAsync(CancellationToken ct = default) =>
@@ -81,6 +84,15 @@ public sealed class ProductAdminService(IPdvDbContext db, PermissionChecker perm
                 product = new Product(model.Name, model.SalePrice, model.CostPrice, model.Unit, categoryId);
                 db.Products.Add(product);
             }
+
+            if (model.TaxProfileId is { } profileId)
+            {
+                var profile = await db.TaxProfiles.SingleOrDefaultAsync(t => t.Id == profileId, ct)
+                    ?? throw new DomainException("Perfil tributário não encontrado.");
+                if (!profile.IsActive) throw new DomainException("Perfil tributário inativo.");
+                profile.EnsureCompatibleWith(await db.Companies.Select(c => c.TaxRegime).FirstAsync(ct));
+            }
+            product.SetFiscalData(model.Ncm, model.Cest, model.Origin, model.TaxProfileId);
 
             var conflicts = await db.ProductBarcodes.Where(b => codes.Contains(b.Code) && b.ProductId != product.Id)
                 .Select(b => b.Code).ToListAsync(ct);

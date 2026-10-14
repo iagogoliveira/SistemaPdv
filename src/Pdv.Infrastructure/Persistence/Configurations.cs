@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Pdv.Domain.Auditing;
 using Pdv.Domain.Cash;
 using Pdv.Domain.Catalog;
+using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Inventory;
 using Pdv.Domain.Sales;
@@ -17,7 +18,42 @@ internal sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
     public void Configure(EntityTypeBuilder<Company> b)
     {
         b.Property(x => x.LegalName).HasMaxLength(150);
+        b.Property(x => x.TradeName).HasMaxLength(150);
         b.Property(x => x.Cnpj).HasMaxLength(14);
+        b.Property(x => x.StateRegistration).HasMaxLength(14);
+        b.Property(x => x.MunicipalRegistration).HasMaxLength(20);
+        b.Property(x => x.Phone).HasMaxLength(14);
+        b.Ignore(x => x.IsFiscallyConfigured);
+        b.OwnsOne(x => x.Address, a =>
+        {
+            a.Property(x => x.Street).HasMaxLength(60).HasColumnName("AddressStreet");
+            a.Property(x => x.Number).HasMaxLength(60).HasColumnName("AddressNumber");
+            a.Property(x => x.Complement).HasMaxLength(60).HasColumnName("AddressComplement");
+            a.Property(x => x.District).HasMaxLength(60).HasColumnName("AddressDistrict");
+            a.Property(x => x.City).HasMaxLength(60).HasColumnName("AddressCity");
+            a.Property(x => x.CityIbgeCode).HasMaxLength(7).HasColumnName("AddressCityIbgeCode");
+            a.Property(x => x.Uf).HasMaxLength(2).HasColumnName("AddressUf");
+            a.Property(x => x.ZipCode).HasMaxLength(8).HasColumnName("AddressZipCode");
+        });
+        b.HasOne<TaxProfile>().WithMany().HasForeignKey(x => x.DefaultTaxProfileId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class TaxProfileConfiguration : IEntityTypeConfiguration<TaxProfile>
+{
+    public void Configure(EntityTypeBuilder<TaxProfile> b)
+    {
+        b.Property(x => x.Name).HasMaxLength(80);
+        b.Property(x => x.Cfop).HasMaxLength(4);
+        b.Property(x => x.Csosn).HasMaxLength(3);
+        b.Property(x => x.IcmsCst).HasMaxLength(2);
+        b.Property(x => x.PisCst).HasMaxLength(2);
+        b.Property(x => x.CofinsCst).HasMaxLength(2);
+        b.Property(x => x.IcmsRate).HasPrecision(7, 4);
+        b.Property(x => x.PisRate).HasPrecision(7, 4);
+        b.Property(x => x.CofinsRate).HasPrecision(7, 4);
+        b.Ignore(x => x.UsesCsosn);
+        b.HasIndex(x => x.Name).IsUnique();
     }
 }
 
@@ -84,7 +120,11 @@ internal sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
     {
         b.Property(x => x.Name).HasMaxLength(120);
         b.Property(x => x.Unit).HasMaxLength(6);
+        b.Property(x => x.Ncm).HasMaxLength(8);
+        b.Property(x => x.Cest).HasMaxLength(7);
+        b.Ignore(x => x.HasFiscalData);
         b.HasIndex(x => x.Name);
+        b.HasOne<TaxProfile>().WithMany().HasForeignKey(x => x.TaxProfileId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<Category>().WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
         b.HasMany(x => x.Barcodes).WithOne().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
     }
@@ -147,6 +187,8 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
         b.HasIndex(x => x.Number).IsUnique();
         b.HasIndex(x => x.CompletedAt);
         b.Property(x => x.CancellationReason).HasMaxLength(250);
+        b.Property(x => x.CustomerDocument).HasMaxLength(14);
+        b.Property(x => x.CustomerName).HasMaxLength(60);
         b.Ignore(x => x.PaidTotal);
         b.Ignore(x => x.NetCashReceived);
         b.HasOne<Terminal>().WithMany().HasForeignKey(x => x.TerminalId).OnDelete(DeleteBehavior.Restrict);
@@ -166,6 +208,17 @@ internal sealed class SaleItemConfiguration : IEntityTypeConfiguration<SaleItem>
         b.Property(x => x.Description).HasMaxLength(120);
         b.Property(x => x.Unit).HasMaxLength(6);
         b.Property(x => x.Quantity).HasPrecision(18, 3);
+        b.Property(x => x.Ncm).HasMaxLength(8);
+        b.Property(x => x.Cest).HasMaxLength(7);
+        b.Property(x => x.Cfop).HasMaxLength(4);
+        b.Property(x => x.Csosn).HasMaxLength(3);
+        b.Property(x => x.IcmsCst).HasMaxLength(2);
+        b.Property(x => x.PisCst).HasMaxLength(2);
+        b.Property(x => x.CofinsCst).HasMaxLength(2);
+        b.Property(x => x.IcmsRate).HasPrecision(7, 4);
+        b.Property(x => x.PisRate).HasPrecision(7, 4);
+        b.Property(x => x.CofinsRate).HasPrecision(7, 4);
+        b.Ignore(x => x.HasFiscalData);
         b.HasIndex(x => new { x.SaleId, x.LineNumber }).IsUnique();
         b.HasOne<Product>().WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
     }

@@ -3,6 +3,7 @@ using Pdv.Application.Identity;
 using Pdv.Domain.Auditing;
 using Pdv.Domain.Cash;
 using Pdv.Domain.Common;
+using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Inventory;
 using Pdv.Domain.Sales;
@@ -20,7 +21,9 @@ public sealed record FinalizeSaleCommand(
     Guid OperatorUserId,
     IReadOnlyList<CheckoutItem> Items,
     IReadOnlyList<CheckoutPayment> Payments,
-    Guid? DiscountAuthorizedByUserId = null);
+    Guid? DiscountAuthorizedByUserId = null,
+    string? CustomerDocument = null,
+    string? CustomerName = null);
 
 public sealed record SaleReceipt(Guid SaleId, long Number, decimal Total, decimal Paid, decimal Change, bool AlreadyProcessed);
 
@@ -108,12 +111,27 @@ public sealed class CheckoutService(IPdvDbContext db, PermissionChecker permissi
         var productIds = command.Items.Select(i => i.ProductId).Distinct().ToList();
         var products = await db.Products.AsNoTracking().Where(p => productIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
 
+        // Tributação: perfil do produto ou, se não houver, o padrão da empresa do terminal.
+        var defaultProfileId = await (
+            from t in db.Terminals
+            join s in db.Stores on t.StoreId equals s.Id
+            join c in db.Companies on s.CompanyId equals c.Id
+            where t.Id == command.TerminalId
+            select c.DefaultTaxProfileId).FirstOrDefaultAsync(ct);
+        var profileIds = products.Values.Select(p => p.TaxProfileId ?? defaultProfileId).OfType<Guid>().Distinct().ToList();
+        var profiles = await db.TaxProfiles.AsNoTracking().Where(t => profileIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id, ct);
+
         foreach (var item in command.Items)
         {
             if (!products.TryGetValue(item.ProductId, out var product) || !product.IsActive)
                 throw new DomainException("Produto inexistente ou inativo na venda.");
-            sale.AddItem(product.Id, product.Name, product.Unit, item.Quantity, product.SalePrice, item.Discount);
+            var fiscal = (product.TaxProfileId ?? defaultProfileId) is { } pid && profiles.TryGetValue(pid, out var profile)
+                ? ItemFiscalData.From(product.Ncm, product.Cest, product.Origin, profile)
+                : null;
+            sale.AddItem(product.Id, product.Name, product.Unit, item.Quantity, product.SalePrice, item.Discount, fiscal);
         }
+
+        sale.SetCustomer(command.CustomerDocument, command.CustomerName);
 
         if (sale.DiscountTotal > 0)
         {

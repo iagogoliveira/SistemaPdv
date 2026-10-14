@@ -21,6 +21,7 @@
         <KeyBinding Key="F8" Command="{Binding ReprintCommand}" />
         <KeyBinding Key="F9" Command="{Binding AddPaymentCommand}" />
         <KeyBinding Key="F10" Command="{Binding FinalizeCommand}" />
+        <KeyBinding Key="F11" Command="{Binding SetCustomerDocumentCommand}" />
         <KeyBinding Key="F12" Command="{Binding CloseCashCommand}" />
         <KeyBinding Key="Escape" Command="{Binding ClearCartCommand}" />
     </Window.InputBindings>
@@ -100,6 +101,8 @@
                                Content="Cancelar venda" Command="{Binding CancelSaleCommand}" />
                 <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="F8" Icon="{StaticResource Icon.Printer}"
                                Content="Reimprimir" Command="{Binding ReprintCommand}" />
+                <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="F11" Icon="{StaticResource Icon.User}"
+                               Content="CPF na nota" Command="{Binding SetCustomerDocumentCommand}" />
                 <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="Esc" Icon="{StaticResource Icon.Undo}"
                                Content="Descartar" Command="{Binding ClearCartCommand}" />
                 <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="F12" Icon="{StaticResource Icon.Lock}"
@@ -288,6 +291,19 @@
                 <!-- Pagamento -->
                 <Border Style="{StaticResource Card}" Margin="0,14,0,0">
                     <DockPanel>
+                        <!-- CPF/CNPJ informado para a nota -->
+                        <Border DockPanel.Dock="Top" Background="{StaticResource BrandSoftBrush}" CornerRadius="8" Padding="12,4,4,4" Margin="0,0,0,12"
+                                Visibility="{Binding HasCustomerDocument, Converter={StaticResource BoolToVisibility}}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" ToolTip="Remover CPF/CNPJ" Padding="6" MinHeight="0" Margin="6,0,0,0"
+                                        Background="Transparent" BorderThickness="0" Command="{Binding SetCustomerDocumentCommand}">
+                                    <ui:IconView Data="{StaticResource Icon.Edit}" Foreground="{StaticResource BrandBrush}" Width="14" Height="14" />
+                                </Button>
+                                <ui:IconView Data="{StaticResource Icon.User}" Foreground="{StaticResource BrandBrush}" Width="16" Height="16" Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding CustomerDocumentDisplay}" Foreground="{StaticResource BrandPressedBrush}" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Border>
                         <TextBlock DockPanel.Dock="Top" Text="Forma de pagamento" Style="{StaticResource SectionTitle}" Margin="2,0,0,8" />
                         <ListBox DockPanel.Dock="Top" Style="{StaticResource TileListBox}" Focusable="False"
                                  ItemsSource="{Binding PaymentOptions}" SelectedItem="{Binding SelectedPayment}">

@@ -9,6 +9,7 @@ using Pdv.Application.Sales;
 using Pdv.Desktop.Services;
 using Pdv.Desktop.Views;
 using Pdv.Domain.Common;
+using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Sales;
 using Serilog;
@@ -81,6 +82,16 @@ public partial class CheckoutViewModel(
 
     [ObservableProperty]
     private string _statusMessage = "Caixa livre";
+
+    /// <summary>CPF/CNPJ do consumidor para sair na nota (sem pontuação).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CustomerDocumentDisplay), nameof(HasCustomerDocument))]
+    private string? _customerDocument;
+
+    public string CustomerDocumentDisplay => CustomerDocument is { Length: 11 } ? $"CPF {TaxDocuments.Format(CustomerDocument)}"
+        : CustomerDocument is null ? "" : $"CNPJ {TaxDocuments.Format(CustomerDocument)}";
+
+    public bool HasCustomerDocument => CustomerDocument is not null;
 
     /// <summary>Último item lido, em destaque para o cliente acompanhar.</summary>
     [ObservableProperty]
@@ -233,6 +244,29 @@ public partial class CheckoutViewModel(
         ResetCart("Venda descartada.");
     }
 
+    /// <summary>"CPF na nota": informa (ou remove, se vazio) o CPF/CNPJ do consumidor da venda atual.</summary>
+    [RelayCommand]
+    private void SetCustomerDocument()
+    {
+        if (!EnsureCartEditable()) return;
+        var input = dialogs.Prompt("CPF/CNPJ na nota", "CPF ou CNPJ do consumidor (deixe vazio para remover):",
+            CustomerDocument is null ? "" : TaxDocuments.Format(CustomerDocument));
+        if (input is null) return;
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            CustomerDocument = null;
+            StatusMessage = "CPF/CNPJ removido da venda.";
+            return;
+        }
+        if (!TaxDocuments.IsValidCpfOrCnpj(input))
+        {
+            dialogs.ShowError("CPF ou CNPJ inválido. Confira os números com o cliente.");
+            return;
+        }
+        CustomerDocument = TaxDocuments.Normalize(input);
+        StatusMessage = $"{CustomerDocumentDisplay} será informado na nota.";
+    }
+
     // ---------- Pagamento ----------
 
     /// <summary>Adiciona um pagamento (vazio = valor restante). Se quitar a venda, finaliza.</summary>
@@ -287,7 +321,8 @@ public partial class CheckoutViewModel(
             state.User!.UserId,
             Items.Select(i => new CheckoutItem(i.Product.ProductId, i.Quantity, i.Discount)).ToList(),
             Payments.Select(p => new CheckoutPayment(p.Method, p.Amount)).ToList(),
-            DiscountTotal > 0 ? _discountAuthorizerId : null);
+            DiscountTotal > 0 ? _discountAuthorizerId : null,
+            CustomerDocument);
 
         IsBusy = true;
         SaleReceipt receipt;
@@ -536,6 +571,7 @@ public partial class CheckoutViewModel(
         Items.Clear();
         Payments.Clear();
         LastItem = null;
+        CustomerDocument = null;
         AmountInput = "";
         SelectedPayment = PaymentOptions[0];
         _clientRequestId = Guid.CreateVersion7();

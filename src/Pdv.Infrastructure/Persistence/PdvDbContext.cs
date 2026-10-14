@@ -3,6 +3,7 @@ using Pdv.Application;
 using Pdv.Domain.Auditing;
 using Pdv.Domain.Cash;
 using Pdv.Domain.Catalog;
+using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Inventory;
 using Pdv.Domain.Sales;
@@ -21,6 +22,7 @@ public sealed class PdvDbContext(DbContextOptions<PdvDbContext> options) : DbCon
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductBarcode> ProductBarcodes => Set<ProductBarcode>();
+    public DbSet<TaxProfile> TaxProfiles => Set<TaxProfile>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<CashSession> CashSessions => Set<CashSession>();
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();

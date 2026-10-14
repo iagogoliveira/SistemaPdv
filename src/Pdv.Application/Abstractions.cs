@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Pdv.Domain.Auditing;
 using Pdv.Domain.Cash;
 using Pdv.Domain.Catalog;
+using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Inventory;
 using Pdv.Domain.Sales;
@@ -20,6 +21,7 @@ public interface IPdvDbContext
     DbSet<Supplier> Suppliers { get; }
     DbSet<Product> Products { get; }
     DbSet<ProductBarcode> ProductBarcodes { get; }
+    DbSet<TaxProfile> TaxProfiles { get; }
     DbSet<StockMovement> StockMovements { get; }
     DbSet<CashSession> CashSessions { get; }
     DbSet<CashMovement> CashMovements { get; }

@@ -12,7 +12,14 @@ public partial class AdminWindow : Window
     {
         InitializeComponent();
         DataContext = _viewModel = viewModel;
-        if (!viewModel.ShowProductsTab) Tabs.SelectedIndex = 1;
+        // Abre na primeira aba que o usuário pode ver.
+        Loaded += (_, _) => Tabs.SelectedItem = Tabs.Items.OfType<System.Windows.Controls.TabItem>()
+            .FirstOrDefault(t => t.Visibility == Visibility.Visible);
+    }
+
+    private void OnTaxProfileDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_viewModel.CanManageCompany) _viewModel.EditSelectedTaxProfileCommand.Execute(null);
     }
 
     private void OnProductDoubleClick(object sender, MouseButtonEventArgs e)
