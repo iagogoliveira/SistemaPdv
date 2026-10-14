@@ -1,39 +1,119 @@
 <Window x:Class="Pdv.Desktop.Views.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Sistema PDV — Entrar" Width="400" SizeToContent="Height"
+        xmlns:ui="clr-namespace:Pdv.Desktop.Controls"
+        Title="Sistema PDV — Entrar" Width="880" Height="560"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        FontFamily="{StaticResource UiFont}" FontSize="14" UseLayoutRounding="True"
+        Background="{StaticResource SurfaceBrush}" Foreground="{StaticResource TextBrush}"
         FocusManager.FocusedElement="{Binding ElementName=UsernameBox}">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
     </Window.Resources>
-    <StackPanel Margin="24">
-        <TextBlock Text="Sistema PDV" FontSize="24" FontWeight="SemiBold" />
-        <TextBlock Text="{Binding TerminalLabel}" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,16" />
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="380" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <Border Background="{StaticResource PanelBrush}" Padding="10" Margin="0,0,0,12" CornerRadius="4"
-                Visibility="{Binding IsSetupMode, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock TextWrapping="Wrap"
-                       Text="Primeiro acesso: crie o usuário administrador. Ele poderá cadastrar os demais usuários." />
+        <!-- Painel da marca -->
+        <Border Background="{StaticResource HeaderBrush}">
+            <Grid Margin="40">
+                <StackPanel VerticalAlignment="Center">
+                    <Image Source="{StaticResource LogoImage}" Width="88" Height="88" HorizontalAlignment="Left" />
+                    <TextBlock Text="Sistema PDV" Foreground="White" FontSize="34" FontWeight="Bold"
+                               FontFamily="{StaticResource DisplayFont}" Margin="0,22,0,6" />
+                    <TextBlock Text="Vendas rápidas, caixa sob controle." Foreground="#BFDBFE" FontSize="16" TextWrapping="Wrap" />
+
+                    <StackPanel Margin="0,32,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,6">
+                            <ui:IconView Data="{StaticResource Icon.Barcode}" Foreground="White" Width="20" Height="20" Margin="0,0,12,0" />
+                            <TextBlock Text="Leitura de código de barras" Foreground="White" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,6">
+                            <ui:IconView Data="{StaticResource Icon.Pix}" Foreground="White" Width="20" Height="20" Margin="0,0,12,0" />
+                            <TextBlock Text="Dinheiro, cartão e Pix na mesma venda" Foreground="White" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,6">
+                            <ui:IconView Data="{StaticResource Icon.Shield}" Foreground="White" Width="20" Height="20" Margin="0,0,12,0" />
+                            <TextBlock Text="Funciona mesmo sem internet" Foreground="White" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+                <TextBlock Text="{Binding TerminalLabel}" Foreground="#93C5FD" FontSize="12" VerticalAlignment="Bottom" />
+            </Grid>
         </Border>
 
-        <TextBlock Text="Usuário" />
-        <TextBox x:Name="UsernameBox" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,10" />
+        <!-- Formulário -->
+        <Grid Grid.Column="1" Margin="56,0">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock FontSize="28" FontWeight="Bold" FontFamily="{StaticResource DisplayFont}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="Bem-vindo de volta" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSetupMode}" Value="True">
+                                    <Setter Property="Text" Value="Primeiro acesso" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <TextBlock Foreground="{StaticResource MutedBrush}" Margin="0,6,0,24" TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="Entre com seu usuário para abrir o caixa." />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSetupMode}" Value="True">
+                                    <Setter Property="Text" Value="Crie o usuário administrador. Depois ele poderá cadastrar os demais operadores." />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
 
-        <StackPanel Visibility="{Binding IsSetupMode, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="Nome de exibição" />
-            <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,10" />
-        </StackPanel>
+                <TextBlock Text="Usuário" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                <Grid Margin="0,0,0,14">
+                    <TextBox x:Name="UsernameBox" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="ex.: maria" Padding="40,10,10,10" FontSize="15" />
+                    <ui:IconView Data="{StaticResource Icon.User}" Foreground="{StaticResource MutedBrush}" Width="18" Height="18"
+                                 HorizontalAlignment="Left" Margin="13,0,0,0" IsHitTestVisible="False" />
+                </Grid>
 
-        <TextBlock Text="Senha" />
-        <PasswordBox x:Name="PasswordBox" Margin="0,4,0,10" />
+                <StackPanel Visibility="{Binding IsSetupMode, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="Nome de exibição" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                    <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Tag="ex.: Maria Souza"
+                             Padding="12,10" FontSize="15" Margin="0,0,0,14" />
+                </StackPanel>
 
-        <TextBlock Text="{Binding Error}" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                <TextBlock Text="Senha" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                <Grid Margin="0,0,0,14">
+                    <PasswordBox x:Name="PasswordBox" Padding="40,10,10,10" FontSize="15" />
+                    <ui:IconView Data="{StaticResource Icon.Lock}" Foreground="{StaticResource MutedBrush}" Width="18" Height="18"
+                                 HorizontalAlignment="Left" Margin="13,0,0,0" IsHitTestVisible="False" />
+                </Grid>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Sair" IsCancel="True" Click="OnCancel" />
-            <Button Content="Entrar" IsDefault="True" Style="{StaticResource PrimaryButton}"
-                    Click="OnSubmitClick" />
-        </StackPanel>
-    </StackPanel>
+                <Border CornerRadius="8" Padding="12,10" Margin="0,0,0,14" Background="{StaticResource DangerSoftBrush}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Error}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:IconView Data="{StaticResource Icon.Alert}" Foreground="{StaticResource DangerBrush}" Width="18" Height="18" Margin="0,0,10,0" />
+                        <TextBlock Text="{Binding Error}" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <ui:IconButton Content="Entrar" IsDefault="True" Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Logout}"
+                               FontSize="16" MinHeight="48" Margin="0,4,0,0" Click="OnSubmitClick" />
+                <Button Content="Sair do sistema" IsCancel="True" Click="OnCancel" Margin="0,10,0,0"
+                        Background="Transparent" BorderThickness="0" Foreground="{StaticResource MutedBrush}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
 </Window>

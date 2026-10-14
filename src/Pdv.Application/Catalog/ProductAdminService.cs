@@ -11,7 +11,12 @@ namespace Pdv.Application.Catalog;
 public sealed record ProductListItem(Guid Id, string Name, string Unit, string? CategoryName, decimal SalePrice, decimal CostPrice,
     decimal Stock, string Barcodes, bool IsActive)
 {
+    public const decimal LowStockThreshold = 5;
+
     public decimal? MarginPercent => SalePrice == 0 ? null : Money.Round((SalePrice - CostPrice) / SalePrice * 100);
+
+    /// <summary>Destaque visual simples enquanto não existe estoque mínimo por produto.</summary>
+    public bool IsLowStock => IsActive && Stock <= LowStockThreshold;
 }
 
 public sealed record ProductEditModel(Guid? Id, string Name, string Unit, string? CategoryName, decimal SalePrice, decimal CostPrice,

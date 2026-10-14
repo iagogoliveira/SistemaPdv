@@ -21,6 +21,9 @@ public sealed class GridDialog : Window
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
         FontSize = 14;
+        UseLayoutRounding = true;
+        FontFamily = (System.Windows.Media.FontFamily)FindResource("UiFont");
+        Background = (System.Windows.Media.Brush)FindResource("BackgroundBrush");
 
         _grid = new DataGrid
         {
@@ -29,8 +32,7 @@ public sealed class GridDialog : Window
             IsReadOnly = true,
             SelectionMode = DataGridSelectionMode.Single,
             HeadersVisibility = DataGridHeadersVisibility.Column,
-            RowHeight = 30,
-            Margin = new Thickness(12, 12, 12, 0),
+            Margin = new Thickness(16, 16, 16, 0),
         };
         foreach (var c in columns)
         {
@@ -59,7 +61,7 @@ public sealed class GridDialog : Window
             buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             buttons.Children.Add(new Button { Content = "Fechar", IsCancel = true, IsDefault = true, MinWidth = 80 });
         }
-        buttons.Margin = new Thickness(8);
+        buttons.Margin = new Thickness(12);
         DockPanel.SetDock(buttons, Dock.Bottom);
         panel.Children.Add(buttons);
         panel.Children.Add(_grid);

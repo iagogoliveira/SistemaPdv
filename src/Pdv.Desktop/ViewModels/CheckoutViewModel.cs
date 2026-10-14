@@ -82,6 +82,10 @@ public partial class CheckoutViewModel(
     [ObservableProperty]
     private string _statusMessage = "Caixa livre";
 
+    /// <summary>Último item lido, em destaque para o cliente acompanhar.</summary>
+    [ObservableProperty]
+    private CartLine? _lastItem;
+
     [ObservableProperty]
     private string _cashStatus = "";
 
@@ -93,6 +97,10 @@ public partial class CheckoutViewModel(
     private bool _isBusy;
 
     public string Header => $"Terminal {state.Terminal.Code}  ·  Operador: {state.User?.DisplayName}";
+
+    public string TerminalLabel => $"Caixa {state.Terminal.Code}";
+
+    public string OperatorName => state.User?.DisplayName ?? "";
 
     public bool CanOpenAdmin => state.User is { } u &&
         (u.Can(Permissions.ManageProducts) || u.Can(Permissions.AdjustStock) || u.Can(Permissions.ManageUsers));
@@ -166,6 +174,7 @@ public partial class CheckoutViewModel(
         Items.Add(line);
         Payments.Clear();
         SelectedItem = line;
+        LastItem = line;
         CodeInput = "";
         StatusMessage = $"{product.Name} — {quantity:0.###} × {product.SalePrice:C}";
     }
@@ -174,6 +183,7 @@ public partial class CheckoutViewModel(
     private void RemoveSelectedItem()
     {
         if (SelectedItem is null || !EnsureCartEditable()) return;
+        if (ReferenceEquals(LastItem, SelectedItem)) LastItem = null;
         Items.Remove(SelectedItem);
         Payments.Clear();
         Renumber();
@@ -525,6 +535,7 @@ public partial class CheckoutViewModel(
     {
         Items.Clear();
         Payments.Clear();
+        LastItem = null;
         AmountInput = "";
         SelectedPayment = PaymentOptions[0];
         _clientRequestId = Guid.CreateVersion7();

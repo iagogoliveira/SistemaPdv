@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Pdv.Desktop.ViewModels;
 
 namespace Pdv.Desktop;
@@ -10,12 +12,19 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+
+        var clock = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        clock.Tick += (_, _) => UpdateClock();
+        clock.Start();
+        UpdateClock();
         Loaded += async (_, _) =>
         {
             await viewModel.LoadAsync();
             CodeBox.Focus();
         };
     }
+
+    private void UpdateClock() => ClockText.Text = DateTime.Now.ToString("HH:mm", CultureInfo.CurrentCulture);
 
     // O leitor de código de barras "digita" no campo: devolvemos o foco a ele após qualquer ação.
     protected override void OnPreviewKeyUp(KeyEventArgs e)

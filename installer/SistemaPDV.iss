@@ -30,6 +30,7 @@ MinVersion=10.0.17763
 PrivilegesRequired=admin
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#AppExe}
+SetupIconFile=..\src\Pdv.Desktop\Assets\app.ico
 CloseApplications=yes
 
 [Languages]

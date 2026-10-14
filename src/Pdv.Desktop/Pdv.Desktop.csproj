@@ -20,10 +20,13 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>SistemaPDV</AssemblyName>
     <RootNamespace>Pdv.Desktop</RootNamespace>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <None Update="appsettings*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Resource Include="Assets\app.ico" />
+    <None Remove="Assets\logo-256.png" />
   </ItemGroup>
 
 </Project>

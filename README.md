@@ -80,6 +80,20 @@ códigos `7891000000011`, `…028`, `…035`, `…042`, `…059`.
 | `F10` | Finaliza a venda |
 | `Esc` | Descarta a venda em andamento |
 
+### Interface
+
+- Tema em `src/Pdv.Desktop/Themes/Theme.xaml` (cores, botões, campos, tabelas) e ícones vetoriais próprios em
+  `Themes/Icons.xaml` (traço em grade 24×24, usados via `IconView`/`IconButton`).
+- O logotipo é o mesmo desenho vetorial em todo lugar. Depois de alterá-lo em `Icons.xaml` (`LogoImage`), gere de novo
+  o `Assets/app.ico` (executável, janelas e instalador):
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/generate-icon.ps1
+```
+
+- No caixa, o último item lido fica em destaque para o cliente acompanhar; todas as teclas de função também
+  são botões clicáveis (mouse ou tela de toque). Produtos com estoque até 5 aparecem em vermelho na retaguarda.
+
 ### Comprovante
 
 Comprovante **não fiscal** impresso pelo driver do Windows, em largura de bobina (48 colunas em 80 mm,

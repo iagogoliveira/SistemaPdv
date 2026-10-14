@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using Pdv.Desktop.Controls;
 
 namespace Pdv.Desktop.Views;
 
@@ -11,20 +13,14 @@ public sealed class InputDialog : Window
 
     public InputDialog(string title, string message, string initialValue, bool isPassword = false)
     {
-        Title = title;
-        Width = 380;
-        SizeToContent = SizeToContent.Height;
-        ResizeMode = ResizeMode.NoResize;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        ShowInTaskbar = false;
-        FontSize = 14;
+        DialogChrome.Apply(this, title, 420);
 
         Control input = isPassword
-            ? _password = new PasswordBox { FontSize = 18, Margin = new Thickness(0, 6, 0, 12) }
-            : _text = new TextBox { Text = initialValue, FontSize = 18, Margin = new Thickness(0, 6, 0, 12) };
+            ? _password = new PasswordBox { FontSize = 18, Margin = new Thickness(0, 10, 0, 16) }
+            : _text = new TextBox { Text = initialValue, FontSize = 18, Margin = new Thickness(0, 10, 0, 16) };
 
-        var panel = new StackPanel { Margin = new Thickness(20) };
-        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap });
+        var panel = DialogChrome.Panel(this, title, isPassword ? "Icon.Lock" : "Icon.Edit");
+        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Foreground = DialogChrome.Brush(this, "TextSecondaryBrush") });
         panel.Children.Add(input);
         panel.Children.Add(DialogButtons.Create(this));
         Content = panel;
@@ -47,16 +43,11 @@ public sealed class CredentialsDialog : Window
 
     public CredentialsDialog(string title, string message)
     {
-        Title = title;
-        Width = 380;
-        SizeToContent = SizeToContent.Height;
-        ResizeMode = ResizeMode.NoResize;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        ShowInTaskbar = false;
-        FontSize = 14;
+        DialogChrome.Apply(this, title, 420);
 
-        var panel = new StackPanel { Margin = new Thickness(20) };
-        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) });
+        var panel = DialogChrome.Panel(this, title, "Icon.Shield");
+        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 14),
+            Foreground = DialogChrome.Brush(this, "TextSecondaryBrush") });
         panel.Children.Add(new TextBlock { Text = "Usuário do supervisor" });
         panel.Children.Add(_username);
         panel.Children.Add(new TextBlock { Text = "Senha" });
@@ -76,19 +67,60 @@ public sealed class ConfirmDialog : Window
 {
     public ConfirmDialog(string message)
     {
-        Title = "Sistema PDV";
-        Width = 400;
-        SizeToContent = SizeToContent.Height;
-        ResizeMode = ResizeMode.NoResize;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        ShowInTaskbar = false;
+        DialogChrome.Apply(this, "Sistema PDV", 420);
         FontSize = 15;
 
-        var panel = new StackPanel { Margin = new Thickness(20) };
-        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 16) });
+        var panel = DialogChrome.Panel(this, "Confirmação", "Icon.Help");
+        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 18) });
         panel.Children.Add(DialogButtons.Create(this, "Sim", "Não"));
         Content = panel;
     }
+}
+
+/// <summary>Aparência comum dos diálogos: fundo, fonte e cabeçalho com ícone.</summary>
+internal static class DialogChrome
+{
+    public static void Apply(Window window, string title, double width)
+    {
+        window.Title = title;
+        window.Width = width;
+        window.SizeToContent = SizeToContent.Height;
+        window.ResizeMode = ResizeMode.NoResize;
+        window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        window.ShowInTaskbar = false;
+        window.FontSize = 14;
+        window.UseLayoutRounding = true;
+        window.FontFamily = (FontFamily)window.FindResource("UiFont");
+        window.Background = Brush(window, "SurfaceBrush");
+        window.Foreground = Brush(window, "TextBrush");
+    }
+
+    public static StackPanel Panel(Window window, string heading, string iconKey)
+    {
+        var panel = new StackPanel { Margin = new Thickness(24, 20, 24, 20) };
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 14) };
+        header.Children.Add(new Border
+        {
+            Width = 40,
+            Height = 40,
+            CornerRadius = new CornerRadius(10),
+            Background = Brush(window, "BrandSoftBrush"),
+            Child = new IconView { Data = (Geometry)window.FindResource(iconKey), Foreground = Brush(window, "BrandBrush"), Width = 22, Height = 22 },
+        });
+        header.Children.Add(new TextBlock
+        {
+            Text = heading,
+            FontSize = 18,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(12, 0, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+        });
+        panel.Children.Add(header);
+        return panel;
+    }
+
+    public static Brush Brush(Window window, string key) => (Brush)window.FindResource(key);
 }
 
 internal static class DialogButtons
@@ -99,7 +131,7 @@ internal static class DialogButtons
         var cancel = new Button { Content = cancelText, IsCancel = true, MinWidth = 80 };
         ok.Click += (_, _) => window.DialogResult = true;
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, -4, 0) };
         buttons.Children.Add(cancel);
         buttons.Children.Add(ok);
         return buttons;

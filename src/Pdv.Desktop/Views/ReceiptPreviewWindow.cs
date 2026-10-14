@@ -16,13 +16,15 @@ public sealed class ReceiptPreviewWindow : Window
         Height = 640;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
+        FontFamily = (FontFamily)FindResource("UiFont");
+        FontSize = 14;
 
         var document = ReceiptPrinter.Build(receipt, printer.Options.PaperWidthMm);
         var viewer = new FlowDocumentScrollViewer
         {
             Document = document,
             Background = Brushes.White,
-            Margin = new Thickness(8),
+            Margin = new Thickness(16, 16, 16, 0),
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
 
