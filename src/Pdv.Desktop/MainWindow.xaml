@@ -1,0 +1,148 @@
+<Window x:Class="Pdv.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sistema PDV — Frente de caixa" Width="1180" Height="720" MinWidth="980" MinHeight="600"
+        WindowStartupLocation="CenterScreen" WindowState="Maximized" FontSize="14">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
+    <Window.InputBindings>
+        <KeyBinding Key="F1" Command="{Binding OpenAdminCommand}" />
+        <KeyBinding Key="F2" Command="{Binding OpenCashCommand}" />
+        <KeyBinding Key="F3" Command="{Binding SupplyCommand}" />
+        <KeyBinding Key="F4" Command="{Binding WithdrawCommand}" />
+        <KeyBinding Key="F5" Command="{Binding DiscountItemCommand}" />
+        <KeyBinding Key="F6" Command="{Binding RemoveSelectedItemCommand}" />
+        <KeyBinding Key="F7" Command="{Binding CancelSaleCommand}" />
+        <KeyBinding Key="F8" Command="{Binding ReprintCommand}" />
+        <KeyBinding Key="F9" Command="{Binding AddPaymentCommand}" />
+        <KeyBinding Key="F10" Command="{Binding FinalizeCommand}" />
+        <KeyBinding Key="F12" Command="{Binding CloseCashCommand}" />
+        <KeyBinding Key="Escape" Command="{Binding ClearCartCommand}" />
+    </Window.InputBindings>
+
+    <DockPanel>
+        <!-- Cabeçalho -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource AccentBrush}" Padding="16,10">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding CashStatus}" Foreground="White" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Header}" Foreground="White" FontWeight="SemiBold" FontSize="16" />
+            </DockPanel>
+        </Border>
+
+        <!-- Rodapé com atalhos -->
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource PanelBrush}" Padding="8,4">
+            <WrapPanel>
+                <Button Content="F1 Retaguarda" Command="{Binding OpenAdminCommand}"
+                        Visibility="{Binding CanOpenAdmin, Converter={StaticResource BoolToVisibility}}" />
+                <Button Content="F2 Abrir caixa" Command="{Binding OpenCashCommand}" />
+                <Button Content="F3 Suprimento" Command="{Binding SupplyCommand}" />
+                <Button Content="F4 Sangria" Command="{Binding WithdrawCommand}" />
+                <Button Content="F5 Desconto" Command="{Binding DiscountItemCommand}" />
+                <Button Content="F6 Remover item" Command="{Binding RemoveSelectedItemCommand}" />
+                <Button Content="F7 Cancelar venda" Command="{Binding CancelSaleCommand}" />
+                <Button Content="F8 Reimprimir" Command="{Binding ReprintCommand}" />
+                <Button Content="Esc Descartar" Command="{Binding ClearCartCommand}" />
+                <Button Content="F12 Fechar caixa" Command="{Binding CloseCashCommand}" />
+            </WrapPanel>
+        </Border>
+
+        <Grid Margin="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="370" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Itens -->
+            <DockPanel Grid.Column="0" Margin="0,0,16,0">
+                <StackPanel DockPanel.Dock="Top">
+                    <TextBlock Text="Código de barras, quantidade*código ou descrição" Foreground="{StaticResource MutedBrush}" />
+                    <TextBox x:Name="CodeBox" FontSize="22" Margin="0,4,0,4"
+                             Text="{Binding CodeInput, UpdateSourceTrigger=PropertyChanged}">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding AddItemCommand}" />
+                        </TextBox.InputBindings>
+                    </TextBox>
+                    <TextBlock Text="{Binding StatusMessage}" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}"
+                          AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                          CanUserAddRows="False" SelectionMode="Single" GridLinesVisibility="Horizontal"
+                          RowHeight="32" Focusable="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="40" />
+                        <DataGridTextColumn Header="Descrição" Binding="{Binding Product.Name}" Width="*" />
+                        <DataGridTextColumn Header="Qtd" Binding="{Binding Quantity, StringFormat={}{0:0.###}}" Width="70" />
+                        <DataGridTextColumn Header="Un" Binding="{Binding Product.Unit}" Width="45" />
+                        <DataGridTextColumn Header="Preço" Binding="{Binding Product.SalePrice, StringFormat=C}" Width="95" />
+                        <DataGridTextColumn Header="Desconto" Binding="{Binding Discount, StringFormat={}{0:#,0.00;-#,0.00;''}}" Width="85" />
+                        <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat=C}" Width="105" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+
+            <!-- Totais e pagamento -->
+            <Border Grid.Column="1" Background="{StaticResource PanelBrush}" CornerRadius="6" Padding="16">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock Text="TOTAL" Foreground="{StaticResource MutedBrush}" />
+                        <TextBlock Text="{Binding Total, StringFormat=C}" FontSize="42" FontWeight="Bold" />
+                        <TextBlock Foreground="{StaticResource MutedBrush}" Language="pt-BR">
+                            <Run Text="{Binding ItemCount, Mode=OneWay}" /><Run Text=" item(ns)  ·  descontos " /><Run Text="{Binding DiscountTotal, Mode=OneWay, StringFormat=C}" />
+                        </TextBlock>
+
+                        <Separator Margin="0,12" />
+
+                        <TextBlock Text="Forma de pagamento" />
+                        <ComboBox ItemsSource="{Binding PaymentOptions}" SelectedItem="{Binding SelectedPayment}"
+                                  DisplayMemberPath="Label" Margin="0,4,0,8" Padding="6" />
+
+                        <TextBlock Text="Valor (vazio = restante)  ·  Enter/F9 lança" />
+                        <TextBox x:Name="AmountBox" Text="{Binding AmountInput, UpdateSourceTrigger=PropertyChanged}" FontSize="20" Margin="0,4,0,8">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding AddPaymentCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+                    </StackPanel>
+
+                    <StackPanel DockPanel.Dock="Bottom">
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition />
+                                <RowDefinition />
+                                <RowDefinition />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Pago" />
+                            <TextBlock Grid.Column="1" Text="{Binding Paid, StringFormat=C}" />
+                            <TextBlock Grid.Row="1" Text="Restante" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Remaining, StringFormat=C}" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="2" Text="Troco" FontSize="20" FontWeight="Bold" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Change, StringFormat=C}" FontSize="20" FontWeight="Bold" />
+                        </Grid>
+                        <Button Content="F10  Finalizar venda" Command="{Binding FinalizeCommand}"
+                                Style="{StaticResource PrimaryButton}" FontSize="18" MinHeight="52" Margin="0,12,0,0" />
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{Binding Payments}" Margin="0,4">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="0,2">
+                                    <Button DockPanel.Dock="Right" Content="✕" ToolTip="Remover pagamento" Padding="6,0" MinHeight="24" Margin="6,0,0,0"
+                                            Command="{Binding DataContext.RemovePaymentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Amount, StringFormat=C}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

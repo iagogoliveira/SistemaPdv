@@ -1,0 +1,27 @@
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+insert_final_newline = true
+
+[*.{cs,xaml}]
+indent_size = 4
+
+[*.{csproj,props,json,slnx}]
+indent_size = 2
+
+[*.cs]
+# Result<T>.Ok/Fail são fábricas intencionais.
+dotnet_diagnostic.CA1000.severity = none
+# Mensagens da aplicação são em pt-BR; não há localização no MVP.
+dotnet_diagnostic.CA1303.severity = none
+# Projetos de aplicação (não biblioteca): ConfigureAwait não é necessário.
+dotnet_diagnostic.CA2007.severity = none
+
+[tests/**.cs]
+# Nomes de teste descritivos com sublinhado.
+dotnet_diagnostic.CA1707.severity = none
+
+[**/Migrations/*.cs]
+generated_code = true

@@ -1,0 +1,39 @@
+<Window x:Class="Pdv.Desktop.Views.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sistema PDV — Entrar" Width="400" SizeToContent="Height"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        FocusManager.FocusedElement="{Binding ElementName=UsernameBox}">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
+    <StackPanel Margin="24">
+        <TextBlock Text="Sistema PDV" FontSize="24" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding TerminalLabel}" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,16" />
+
+        <Border Background="{StaticResource PanelBrush}" Padding="10" Margin="0,0,0,12" CornerRadius="4"
+                Visibility="{Binding IsSetupMode, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock TextWrapping="Wrap"
+                       Text="Primeiro acesso: crie o usuário administrador. Ele poderá cadastrar os demais usuários." />
+        </Border>
+
+        <TextBlock Text="Usuário" />
+        <TextBox x:Name="UsernameBox" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,10" />
+
+        <StackPanel Visibility="{Binding IsSetupMode, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="Nome de exibição" />
+            <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,10" />
+        </StackPanel>
+
+        <TextBlock Text="Senha" />
+        <PasswordBox x:Name="PasswordBox" Margin="0,4,0,10" />
+
+        <TextBlock Text="{Binding Error}" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Sair" IsCancel="True" Click="OnCancel" />
+            <Button Content="Entrar" IsDefault="True" Style="{StaticResource PrimaryButton}"
+                    Click="OnSubmitClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>

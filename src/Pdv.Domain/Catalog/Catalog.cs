@@ -1,0 +1,119 @@
+using System.Diagnostics.CodeAnalysis;
+using Pdv.Domain.Common;
+
+namespace Pdv.Domain.Catalog;
+
+public class Category : Entity
+{
+    private Category() { Name = null!; }
+
+    public Category(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new DomainException("Nome da categoria é obrigatório.");
+        Name = name.Trim();
+        IsActive = true;
+    }
+
+    public string Name { get; private set; }
+    public bool IsActive { get; private set; }
+
+    public void Deactivate() => IsActive = false;
+}
+
+public class Supplier : Entity
+{
+    private Supplier() { Name = null!; }
+
+    public Supplier(string name, string? document)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new DomainException("Nome do fornecedor é obrigatório.");
+        Name = name.Trim();
+        Document = document?.Trim();
+        IsActive = true;
+    }
+
+    public string Name { get; private set; }
+    public string? Document { get; private set; }
+    public bool IsActive { get; private set; }
+
+    public void Deactivate() => IsActive = false;
+}
+
+public class Product : Entity
+{
+    private readonly List<ProductBarcode> _barcodes = [];
+
+    private Product() { Name = Unit = null!; }
+
+    public Product(string name, decimal salePrice, decimal costPrice, string unit = "UN", Guid? categoryId = null)
+    {
+        Rename(name);
+        ChangePrices(salePrice, costPrice);
+        Unit = string.IsNullOrWhiteSpace(unit) ? "UN" : unit.Trim().ToUpperInvariant();
+        CategoryId = categoryId;
+        IsActive = true;
+    }
+
+    public string Name { get; private set; }
+    public string Unit { get; private set; }
+    public Guid? CategoryId { get; private set; }
+    public decimal SalePrice { get; private set; }
+    public decimal CostPrice { get; private set; }
+    public bool IsActive { get; private set; }
+    public IReadOnlyCollection<ProductBarcode> Barcodes => _barcodes;
+
+    [MemberNotNull(nameof(Name))]
+    public void Rename(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new DomainException("Descrição do produto é obrigatória.");
+        Name = name.Trim();
+    }
+
+    public void Update(string name, string unit, Guid? categoryId)
+    {
+        Rename(name);
+        Unit = string.IsNullOrWhiteSpace(unit) ? "UN" : unit.Trim().ToUpperInvariant();
+        CategoryId = categoryId;
+    }
+
+    public void ChangePrices(decimal salePrice, decimal costPrice)
+    {
+        if (salePrice < 0 || costPrice < 0) throw new DomainException("Preços não podem ser negativos.");
+        SalePrice = Money.Round(salePrice);
+        CostPrice = Money.Round(costPrice);
+    }
+
+    public ProductBarcode AddBarcode(string code)
+    {
+        var normalized = code?.Trim() ?? "";
+        if (normalized.Length == 0) throw new DomainException("Código de barras inválido.");
+        if (_barcodes.Any(b => b.Code == normalized)) throw new DomainException("Código de barras já vinculado ao produto.");
+        var barcode = new ProductBarcode(Id, normalized);
+        _barcodes.Add(barcode);
+        return barcode;
+    }
+
+    public void RemoveBarcode(string code)
+    {
+        var barcode = _barcodes.SingleOrDefault(b => b.Code == code) ?? throw new DomainException("Código não vinculado ao produto.");
+        _barcodes.Remove(barcode);
+    }
+
+    public void Deactivate() => IsActive = false;
+
+    public void Activate() => IsActive = true;
+}
+
+public class ProductBarcode : Entity
+{
+    private ProductBarcode() { Code = null!; }
+
+    internal ProductBarcode(Guid productId, string code)
+    {
+        ProductId = productId;
+        Code = code;
+    }
+
+    public Guid ProductId { get; private set; }
+    public string Code { get; private set; }
+}
