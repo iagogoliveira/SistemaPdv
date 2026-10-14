@@ -15,13 +15,14 @@ public static class DependencyInjection
         services.AddScoped<IPdvDbContext>(sp => sp.GetRequiredService<PdvDbContext>());
         services.AddScoped<DatabaseInitializer>();
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
-        services.AddSingleton(new BackupService(connectionString));
+        services.AddSingleton<IPgTools, LocalPgTools>();
+        services.AddSingleton(sp => new BackupService(connectionString, sp.GetRequiredService<IPgTools>()));
         return services;
     }
 
     internal static void Configure(DbContextOptionsBuilder options, string connectionString) =>
         // Retentativa em falhas transitórias é segura para vendas: a chave de idempotência evita duplicidade.
-        options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(3));
+        options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure(3));
 }
 
 /// <summary>Usado apenas pelo `dotnet ef` para gerar migrações.</summary>
@@ -30,7 +31,7 @@ internal sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<P
     public PdvDbContext CreateDbContext(string[] args)
     {
         var builder = new DbContextOptionsBuilder<PdvDbContext>();
-        DependencyInjection.Configure(builder, @"Server=(localdb)\MSSQLLocalDB;Database=PdvDesign;Trusted_Connection=True");
+        DependencyInjection.Configure(builder, "Host=localhost;Database=pdv_design;Username=pdv;Password=pdv_dev");
         return new PdvDbContext(builder.Options);
     }
 }

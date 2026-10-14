@@ -10,7 +10,7 @@
         <TextBlock Text="Nome de exibição" />
         <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,10" MaxLength="100" />
         <TextBlock Text="Perfil" />
-        <ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding Role}" DisplayMemberPath="Name" Margin="0,4,0,10" Padding="6" />
+        <ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding Role}" DisplayMemberPath="Name" Margin="0,4,0,10" />
         <TextBlock Text="Senha inicial" />
         <PasswordBox x:Name="PasswordBox" Margin="0,4,0,10" />
         <TextBlock Text="Repita a senha" />

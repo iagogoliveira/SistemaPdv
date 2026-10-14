@@ -63,25 +63,30 @@ procedure InitializeWizard;
 begin
   ServerPage := CreateInputQueryPage(wpSelectDir,
     'Banco de dados da loja',
-    'Em qual SQL Server este caixa vai gravar as vendas?',
-    'No computador principal (servidor) use .\SQLEXPRESS. Nos demais caixas, informe o nome do ' +
-    'computador principal, por exemplo SERVIDOR\SQLEXPRESS. O SQL Server Express precisa estar ' +
-    'instalado no computador principal antes de abrir o sistema.');
-  ServerPage.Add('Servidor SQL:', False);
-  ServerPage.Values[0] := GetPreviousData('SqlServer', '.\SQLEXPRESS');
+    'Em qual PostgreSQL este caixa vai gravar as vendas?',
+    'No computador principal (servidor) use localhost. Nos demais caixas, informe o nome ou IP do ' +
+    'computador principal (ex.: SERVIDOR ou 192.168.0.10). O PostgreSQL precisa estar instalado no ' +
+    'computador principal, com o usuário do sistema criado, antes de abrir o PDV.');
+  ServerPage.Add('Servidor (nome ou IP[:porta]):', False);
+  ServerPage.Add('Usuário do banco:', False);
+  ServerPage.Add('Senha do banco:', True);
+  ServerPage.Values[0] := GetPreviousData('PgServer', 'localhost');
+  ServerPage.Values[1] := GetPreviousData('PgUser', 'pdv');
 end;
 
 procedure RegisterPreviousData(PreviousDataKey: Integer);
 begin
-  SetPreviousData(PreviousDataKey, 'SqlServer', ServerPage.Values[0]);
+  // A senha nunca é guardada no registro do Windows.
+  SetPreviousData(PreviousDataKey, 'PgServer', ServerPage.Values[0]);
+  SetPreviousData(PreviousDataKey, 'PgUser', ServerPage.Values[1]);
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
-  if (CurPageID = ServerPage.ID) and (Trim(ServerPage.Values[0]) = '') then
+  if (CurPageID = ServerPage.ID) and ((Trim(ServerPage.Values[0]) = '') or (Trim(ServerPage.Values[1]) = '')) then
   begin
-    MsgBox('Informe o servidor SQL.', mbError, MB_OK);
+    MsgBox('Informe o servidor e o usuário do banco.', mbError, MB_OK);
     Result := False;
   end;
 end;
@@ -93,14 +98,32 @@ begin
   StringChangeEx(Result, '"', '\"', True);
 end;
 
+{ Valor entre aspas simples na string de conexão: aceita ; e = na senha. }
+function ConnValue(Value: String): String;
+begin
+  Result := Value;
+  StringChangeEx(Result, '''', '''''', True);
+  Result := '''' + Result + '''';
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  Connection: String;
+  Server, Host, Port, Connection: String;
+  P: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
-    Connection := 'Server=' + Trim(ServerPage.Values[0]) +
-      ';Database=SistemaPdv;Trusted_Connection=True;TrustServerCertificate=True;Connect Timeout=10';
+    Server := Trim(ServerPage.Values[0]);
+    Host := Server;
+    Port := '5432';
+    P := Pos(':', Server);
+    if P > 0 then
+    begin
+      Host := Copy(Server, 1, P - 1);
+      Port := Copy(Server, P + 1, Length(Server));
+    end;
+    Connection := 'Host=' + Host + ';Port=' + Port + ';Database=sistema_pdv;Username=' + ConnValue(Trim(ServerPage.Values[1])) +
+      ';Password=' + ConnValue(ServerPage.Values[2]) + ';Timeout=10';
     SaveStringToFile(ExpandConstant('{commonappdata}\SistemaPDV\connection.json'),
       '{' + #13#10 + '  "ConnectionStrings": {' + #13#10 +
       '    "Pdv": "' + JsonEscape(Connection) + '"' + #13#10 +

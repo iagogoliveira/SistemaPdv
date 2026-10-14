@@ -3,7 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Markup;
-using Microsoft.Data.SqlClient;
+using System.Net.Sockets;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -52,9 +52,11 @@ public partial class App : System.Windows.Application
                     return await init.EnsureTerminalAsync(Environment.MachineName);
                 });
             }
-            catch (SqlException ex)
+            catch (Exception ex) when (IsServerUnreachable(ex))
             {
-                Log.Error(ex, "Falha ao conectar ao SQL Server");
+                // Só oferece trocar o servidor quando ele não respondeu. Outros erros de banco
+                // (senha, permissão, migração) seguem para a mensagem de erro real abaixo.
+                Log.Error(ex, "Falha ao conectar ao PostgreSQL");
                 if (AskForServer(services.GetRequiredService<IConfiguration>().GetConnectionString("Pdv"), ex)) Restart();
                 else Shutdown(1);
                 return;
@@ -98,17 +100,31 @@ public partial class App : System.Windows.Application
     }
 
     /// <summary>Sem conexão com o banco: permite informar o servidor da loja e grava na configuração da máquina.</summary>
-    private static bool AskForServer(string? currentConnectionString, SqlException error)
+    private static bool AskForServer(string? currentConnectionString, Exception error)
     {
         var dialog = new InputDialog("Conexão com o banco de dados",
-            $"Não foi possível conectar ao SQL Server.\n{error.Message}\n\n" +
-            "Informe o servidor (ex.: SERVIDOR\\SQLEXPRESS, ou .\\SQLEXPRESS neste computador):",
-            LocalSettings.CurrentServer(currentConnectionString) ?? @".\SQLEXPRESS");
+            $"O servidor do banco de dados não respondeu.\n{Innermost(error).Message}\n\n" +
+            "Informe o computador onde está o PostgreSQL (ex.: SERVIDOR ou 192.168.0.10; localhost neste computador):",
+            LocalSettings.CurrentServer(currentConnectionString) ?? "localhost");
         if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.Value)) return false;
 
-        LocalSettings.SaveConnectionString(LocalSettings.BuildConnectionString(dialog.Value));
-        Log.Information("Servidor SQL alterado para {Server}", dialog.Value);
+        LocalSettings.SaveConnectionString(LocalSettings.WithServer(currentConnectionString, dialog.Value));
+        Log.Information("Servidor do banco alterado para {Server}", dialog.Value);
         return true;
+    }
+
+    /// <summary>Servidor desligado, nome errado, porta bloqueada ou sem resposta (não inclui senha incorreta).</summary>
+    private static bool IsServerUnreachable(Exception ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+            if (e is SocketException or TimeoutException) return true;
+        return false;
+    }
+
+    private static Exception Innermost(Exception ex)
+    {
+        while (ex.InnerException is not null) ex = ex.InnerException;
+        return ex;
     }
 
     private void Restart()

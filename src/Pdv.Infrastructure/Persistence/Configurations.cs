@@ -116,10 +116,11 @@ internal sealed class CashSessionConfiguration : IEntityTypeConfiguration<CashSe
 {
     public void Configure(EntityTypeBuilder<CashSession> b)
     {
-        b.Property(x => x.RowVersion).IsRowVersion();
+        // Token de concorrência: coluna de sistema xmin do PostgreSQL (muda a cada UPDATE da linha).
+        b.Property<uint>("Version").IsRowVersion();
         b.Ignore(x => x.ExpectedCash);
         // No máximo um caixa aberto por terminal, garantido pelo banco.
-        b.HasIndex(x => x.TerminalId).IsUnique().HasFilter("[Status] = 'Open'");
+        b.HasIndex(x => x.TerminalId).IsUnique().HasFilter("\"Status\" = 'Open'");
         b.HasOne<Terminal>().WithMany().HasForeignKey(x => x.TerminalId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<User>().WithMany().HasForeignKey(x => x.OpenedByUserId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<User>().WithMany().HasForeignKey(x => x.ClosedByUserId).OnDelete(DeleteBehavior.Restrict);
@@ -142,7 +143,7 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
     public void Configure(EntityTypeBuilder<Sale> b)
     {
         b.HasIndex(x => x.ClientRequestId).IsUnique();
-        b.Property(x => x.Number).UseSequence(PdvDbContext.SaleNumberSequence);
+        b.Property(x => x.Number).HasDefaultValueSql($"nextval('\"{PdvDbContext.SaleNumberSequence}\"')");
         b.HasIndex(x => x.Number).IsUnique();
         b.HasIndex(x => x.CompletedAt);
         b.Property(x => x.CancellationReason).HasMaxLength(250);

@@ -46,13 +46,12 @@ public class CashSession : Entity
 
     /// <summary>
     /// Incrementado em toda operação (venda, movimento, fechamento). Força o UPDATE da linha da sessão,
-    /// que é verificado pelo RowVersion: uma venda e um fechamento simultâneos não podem ambos ser gravados.
+    /// que é verificado pelo token de concorrência: uma venda e um fechamento simultâneos não podem ambos ser gravados.
     /// </summary>
     public int Revision { get; private set; }
 
     public int SaleCount { get; private set; }
 
-    public byte[] RowVersion { get; private set; } = [];
     public IReadOnlyCollection<CashMovement> Movements => _movements;
 
     /// <summary>Saldo esperado em dinheiro. Requer que os movimentos estejam carregados.</summary>

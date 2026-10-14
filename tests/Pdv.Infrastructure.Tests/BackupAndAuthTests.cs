@@ -50,10 +50,13 @@ public class BackupTests
         var ct = TestContext.Current.CancellationToken;
         var fx = new DatabaseFixture();
         await fx.InitializeAsync();
-        var backupFile = Path.Combine(Path.GetTempPath(), $"pdv-test-{Guid.NewGuid():N}.bak");
+        var backupFile = Path.Combine(Path.GetTempPath(), $"pdv-test-{Guid.NewGuid():N}.backup");
         try
         {
-            var backup = fx.Services.GetRequiredService<BackupService>();
+            IPgTools tools = LocalPgTools.Find("pg_dump") is not null ? new LocalPgTools()
+                : DockerPgTools.IsAvailable() ? new DockerPgTools(DockerPgTools.Container)
+                : throw new InvalidOperationException("Sem pg_dump local nem contêiner pdv-postgres: rode 'docker compose up -d'.");
+            var backup = new BackupService(fx.ConnectionString, tools);
             await backup.BackupAsync(backupFile, ct);
 
             await using (var scope = fx.NewScope())

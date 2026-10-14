@@ -18,9 +18,9 @@ public sealed class ProductLookupService(IPdvDbContext db)
 
     public async Task<IReadOnlyList<ProductLookupItem>> SearchAsync(string term, int take = 30, CancellationToken ct = default)
     {
-        var pattern = $"%{term.Trim()}%";
+        var text = term.Trim().ToLowerInvariant();
         return await db.Products.AsNoTracking()
-            .Where(p => p.IsActive && EF.Functions.Like(p.Name, pattern))
+            .Where(p => p.IsActive && p.Name.ToLower().Contains(text))
             .OrderBy(p => p.Name)
             .Take(take)
             .Select(p => new ProductLookupItem(p.Id, p.Name, p.Unit, p.SalePrice, null))

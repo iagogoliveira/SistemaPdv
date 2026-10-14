@@ -1,6 +1,7 @@
 # Sistema PDV
 
-Ponto de venda para Windows em **.NET 10 (LTS)**, com WPF, SQL Server e EF Core 10.
+Ponto de venda para Windows em **.NET 10 (LTS)**, com WPF, PostgreSQL e EF Core 10.
+Etapas até a operação em loja real: [docs/ROADMAP.md](docs/ROADMAP.md).
 Este repositório implementa o início do MVP descrito no planejamento do produto (V0.1 → V0.3).
 
 ## Stack
@@ -10,7 +11,7 @@ Este repositório implementa o início do MVP descrito no planejamento do produt
 | Runtime / linguagem | .NET 10 LTS, C# 14 |
 | Interface | WPF + CommunityToolkit.Mvvm 8.4 |
 | Hospedagem / DI / config | Microsoft.Extensions.Hosting 10 (`appsettings.json`) |
-| Banco | SQL Server Express (dev: LocalDB) |
+| Banco | PostgreSQL 17 (provedor Npgsql) |
 | Acesso a dados | Entity Framework Core 10 + migrações |
 | Logs técnicos | Serilog (arquivo diário em `%ProgramData%\SistemaPDV\logs`) |
 | Testes | xUnit v3 no Microsoft.Testing.Platform (`dotnet test`) |
@@ -22,11 +23,11 @@ Este repositório implementa o início do MVP descrito no planejamento do produt
 src/
   Pdv.Domain           Entidades e regras de negócio puras (sem dependências)
   Pdv.Application      Casos de uso: login, caixa, finalização de venda, busca de produtos
-  Pdv.Infrastructure   EF Core/SQL Server, migrações, hash de senha, backup/restauração
+  Pdv.Infrastructure   EF Core/PostgreSQL, migrações, hash de senha, backup/restauração (pg_dump)
   Pdv.Desktop          App WPF (frente de caixa)
 tests/
   Pdv.Domain.Tests          Totais, arredondamento, descontos, troco, caixa, estoque
-  Pdv.Infrastructure.Tests  Banco real (LocalDB): idempotência, concorrência, atomicidade, backup
+  Pdv.Infrastructure.Tests  Banco real (PostgreSQL): idempotência, concorrência, atomicidade, backup
 ```
 
 Dependências: `Desktop → Application + Infrastructure`, `Infrastructure → Application → Domain`.
@@ -49,7 +50,16 @@ pelo `Desktop` sem mudar Domain/Application.
 
 ## Como rodar
 
-Pré-requisitos: .NET SDK 10 e SQL Server LocalDB (vem com o Visual Studio) ou SQL Server Express.
+Pré-requisitos: .NET SDK 10 e PostgreSQL 17 com um usuário `pdv` (senha de desenvolvimento `pdv_dev`) que possa criar
+bancos. Duas opções:
+
+- **Instalação local** (usada nesta máquina): instale o PostgreSQL 17 e crie o usuário:
+
+```bash
+psql -h localhost -U postgres -c "CREATE ROLE pdv LOGIN CREATEDB PASSWORD 'pdv_dev';"
+```
+
+- **Docker**: `docker compose up -d` sobe o contêiner `pdv-postgres` já com esse usuário (`compose.yaml`).
 
 ```bash
 dotnet test
@@ -59,8 +69,8 @@ dotnet test
 dotnet run --project src/Pdv.Desktop
 ```
 
-`dotnet run` usa o ambiente `Development` (LocalDB e produtos de demonstração, via
-`Properties/launchSettings.json`). Na primeira execução o banco `SistemaPdv` é criado/migrado, o computador
+`dotnet run` usa o ambiente `Development` (PostgreSQL local e produtos de demonstração, via
+`Properties/launchSettings.json`). Na primeira execução o banco `sistema_pdv` é criado/migrado, o computador
 é registrado como terminal `001` e a tela pede a criação do administrador. Os produtos de exemplo usam os
 códigos `7891000000011`, `…028`, `…035`, `…042`, `…059`.
 
@@ -105,12 +115,14 @@ Comprovante **não fiscal** impresso pelo driver do Windows, em largura de bobin
 O programa fica em Arquivos de Programas (somente leitura); cada máquina tem seus ajustes em
 `%ProgramData%\SistemaPDV`:
 
-- `connection.json`: servidor SQL. Gravado pelo instalador; se o banco não responder ao abrir o sistema,
-  a tela de conexão pede o servidor e grava aqui.
+- `connection.json`: servidor, usuário e senha do PostgreSQL. Gravado pelo instalador; se o servidor não responder
+  ao abrir o sistema, a tela de conexão pede outro servidor e grava aqui (senha incorreta ou outros erros mostram a
+  mensagem real). A senha ainda fica em texto puro — proteção com DPAPI está na Etapa 5 do roadmap.
 - `appsettings.json` (opcional): demais ajustes, como a impressora (`{ "Pdv": { "Receipt": { "Printer": "..." } } }`).
 - `logs\`: logs técnicos diários (30 dias), para o suporte.
 
-Os testes de integração aceitam a variável `PDV_TEST_SQL` (ex.: `.\SQLEXPRESS`).
+Os testes de integração aceitam `PDV_TEST_PG` (ex.: `Host=servidor;Username=pdv;Password=...`). O teste de backup usa
+o `pg_dump` local; sem ele, usa o do contêiner `pdv-postgres` (`PDV_TEST_PG_CONTAINER`).
 
 ## Instalador
 
@@ -122,13 +134,13 @@ O script publica o app **self-contained** para win-x64 (não exige .NET instalad
 `artifacts/publish` e compila `installer/SistemaPDV.iss` com o [Inno Setup 6](https://jrsoftware.org/isdl.php),
 gerando `artifacts/installer/SistemaPDV-Setup-<versão>.exe`. Use `-SkipInstaller` para só publicar.
 
-O instalador pede o servidor SQL (`.\SQLEXPRESS` no computador principal; `SERVIDOR\SQLEXPRESS` nos demais
-caixas), cria `%ProgramData%\SistemaPDV` com permissão de escrita para os usuários e mantém configuração
-e logs ao desinstalar.
+O instalador pede o servidor PostgreSQL (`localhost` no computador principal; nome ou IP dele nos demais caixas),
+o usuário e a senha do banco; cria `%ProgramData%\SistemaPDV` com permissão de escrita para os usuários e mantém
+configuração e logs ao desinstalar.
 
-Pré-requisito no computador principal: **SQL Server Express** instalado. Para caixas em rede: habilitar TCP/IP
-e liberar a porta no firewall, e usar autenticação Windows com contas reconhecidas pelo servidor (ou editar
-`connection.json` com um login SQL). Assistente para isso fica para a etapa de multi-caixa.
+Pré-requisito no computador principal: **PostgreSQL 17** instalado, com um usuário com permissão de criar o banco.
+Para caixas em rede: liberar a porta 5432 no firewall, `listen_addresses` e uma regra em `pg_hba.conf` para a rede
+da loja. A instalação silenciosa do PostgreSQL junto com o PDV está na Etapa 7 do roadmap.
 
 ### Migrações
 

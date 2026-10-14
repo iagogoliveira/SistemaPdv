@@ -299,5 +299,6 @@ public partial class UserForm(IEnumerable<RoleListItem> roles) : ObservableObjec
 
     [ObservableProperty] private string _username = "";
     [ObservableProperty] private string _displayName = "";
-    [ObservableProperty] private RoleListItem? _role;
+    // Novo usuário começa como Operador (menor permissão).
+    [ObservableProperty] private RoleListItem? _role = roles.FirstOrDefault(r => r.Name == "Operador");
 }

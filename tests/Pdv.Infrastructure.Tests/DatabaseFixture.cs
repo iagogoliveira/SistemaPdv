@@ -12,13 +12,13 @@ using Pdv.Infrastructure.Persistence;
 namespace Pdv.Infrastructure.Tests;
 
 /// <summary>
-/// Banco real no SQL Server LocalDB (instalado com o Visual Studio). Variável PDV_TEST_SQL substitui o servidor.
+/// Banco real no PostgreSQL (docker compose up -d). A variável PDV_TEST_PG substitui a conexão do servidor.
 /// Cada execução usa um banco próprio, removido ao final.
 /// </summary>
 public sealed class DatabaseFixture : IAsyncLifetime
 {
     public string ConnectionString { get; } =
-        $@"Server={Environment.GetEnvironmentVariable("PDV_TEST_SQL") ?? @"(localdb)\MSSQLLocalDB"};Database=PdvTests_{Guid.NewGuid():N};Trusted_Connection=True;TrustServerCertificate=True";
+        $"{Environment.GetEnvironmentVariable("PDV_TEST_PG") ?? "Host=localhost;Username=pdv;Password=pdv_dev"};Database=pdv_tests_{Guid.NewGuid():N}";
 
     public ServiceProvider Services { get; private set; } = null!;
     public Guid AdminUserId { get; private set; }

@@ -33,7 +33,8 @@ public sealed class ProductAdminService(IPdvDbContext db, PermissionChecker perm
         if (!string.IsNullOrWhiteSpace(term))
         {
             var t = term.Trim();
-            query = query.Where(p => EF.Functions.Like(p.Name, $"%{t}%") || p.Barcodes.Any(b => b.Code == t));
+            var lower = t.ToLowerInvariant();
+            query = query.Where(p => p.Name.ToLower().Contains(lower) || p.Barcodes.Any(b => b.Code == t));
         }
 
         var rows = await query.OrderBy(p => p.Name).Take(take)

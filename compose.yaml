@@ -1,0 +1,23 @@
+# PostgreSQL para desenvolvimento e testes. Não use estas credenciais em loja.
+#   docker compose up -d
+services:
+  postgres:
+    image: postgres:17
+    container_name: pdv-postgres
+    environment:
+      POSTGRES_USER: pdv
+      POSTGRES_PASSWORD: pdv_dev
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pdv-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pdv"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pdv-pgdata:
