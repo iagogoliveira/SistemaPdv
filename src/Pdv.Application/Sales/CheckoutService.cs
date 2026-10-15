@@ -12,7 +12,8 @@ namespace Pdv.Application.Sales;
 
 public sealed record CheckoutItem(Guid ProductId, decimal Quantity, decimal Discount = 0);
 
-public sealed record CheckoutPayment(PaymentMethod Method, decimal Amount);
+/// <param name="Reference">Para vale-troca: o código do vale.</param>
+public sealed record CheckoutPayment(PaymentMethod Method, decimal Amount, string? Reference = null);
 
 /// <param name="ClientRequestId">Gerado pelo terminal quando o carrinho é iniciado; reenviar a mesma chave é seguro.</param>
 public sealed record FinalizeSaleCommand(
@@ -128,7 +129,7 @@ public sealed class CheckoutService(IPdvDbContext db, PermissionChecker permissi
             var fiscal = (product.TaxProfileId ?? defaultProfileId) is { } pid && profiles.TryGetValue(pid, out var profile)
                 ? ItemFiscalData.From(product.Ncm, product.Cest, product.Origin, profile)
                 : null;
-            sale.AddItem(product.Id, product.Name, product.Unit, item.Quantity, product.SalePrice, item.Discount, fiscal);
+            sale.AddItem(product.Id, product.Name, product.Unit, item.Quantity, product.SalePrice, item.Discount, fiscal, product.CostPrice);
         }
 
         sale.SetCustomer(command.CustomerDocument, command.CustomerName);
@@ -144,7 +145,21 @@ public sealed class CheckoutService(IPdvDbContext db, PermissionChecker permissi
         }
 
         foreach (var payment in command.Payments)
-            sale.AddPayment(payment.Method, payment.Amount);
+        {
+            if (payment.Method == PaymentMethod.ExchangeVoucher)
+            {
+                // O saldo do vale é baixado na mesma transação da venda (e protegido contra uso simultâneo).
+                var code = ExchangeVoucher.NormalizeCode(payment.Reference);
+                var voucher = await db.ExchangeVouchers.SingleOrDefaultAsync(v => v.Code == code, ct)
+                    ?? throw new DomainException($"Vale-troca {payment.Reference} não encontrado.");
+                voucher.Redeem(payment.Amount, now);
+                sale.AddPayment(payment.Method, payment.Amount, voucher.Code);
+            }
+            else
+            {
+                sale.AddPayment(payment.Method, payment.Amount, payment.Reference);
+            }
+        }
 
         sale.Complete(now);
 

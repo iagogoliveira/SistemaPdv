@@ -79,7 +79,7 @@ códigos `7891000000011`, `…028`, `…035`, `…042`, `…059`.
 | Tecla | Ação |
 |---|---|
 | `Enter` | Adiciona item (código, `3*código` ou parte da descrição) |
-| `F1` | Retaguarda: produtos, estoque, usuários (conforme permissão) |
+| `F1` | Retaguarda: produtos, compras, relatórios, usuários e dados fiscais (conforme permissão) |
 | `F2` / `F12` | Abre / fecha o caixa (fechamento mostra falta ou sobra) |
 | `F3` / `F4` | Suprimento / sangria (pede supervisor se o operador não tiver permissão) |
 | `F5` | Desconto no item: `2,50` ou `10%` (pede supervisor se necessário) |
@@ -89,6 +89,10 @@ códigos `7891000000011`, `…028`, `…035`, `…042`, `…059`.
 | `F9` ou `Enter` no valor | Lança um pagamento; vários lançamentos = pagamento dividido |
 | `F10` | Finaliza a venda |
 | `F11` | CPF/CNPJ na nota (vazio remove) |
+| `Ctrl+Q` | Altera a quantidade do item selecionado |
+| `Ctrl+P` | Consulta preço e estoque sem lançar na venda |
+| `Ctrl+T` | Devolução / troca de uma venda (parcial; dinheiro ou vale-troca; pede supervisor) |
+| `Ctrl+L` | Bloqueia o caixa / troca de operador sem fechar o caixa |
 | `Esc` | Descarta a venda em andamento |
 
 ### Interface
@@ -103,7 +107,7 @@ powershell -ExecutionPolicy Bypass -File tools/generate-icon.ps1
 ```
 
 - No caixa, o último item lido fica em destaque para o cliente acompanhar; todas as teclas de função também
-  são botões clicáveis (mouse ou tela de toque). Produtos com estoque até 5 aparecem em vermelho na retaguarda.
+  são botões clicáveis (mouse ou tela de toque). Produtos abaixo do estoque mínimo aparecem em vermelho na retaguarda.
 
 ### Cadastro fiscal (Etapa 2)
 
@@ -135,6 +139,19 @@ para `%ProgramData%\SistemaPDV`) e CSC. A senha do certificado e o CSC ficam cif
 
 Para homologar de verdade é preciso: certificado A1 da empresa, credenciamento como emissor de NFC-e na SEFAZ da UF
 e o CSC de homologação. Biblioteca fiscal: DFe.NET (LGPL 2.1), ver `THIRD-PARTY-NOTICES.md`.
+
+### Operação do dia a dia (Etapa 4)
+
+- **Devolução / troca:** escolhe a venda pelo número e a quantidade de cada item; o valor é proporcional ao que foi
+  pago (com desconto). Reembolso em dinheiro (sai da gaveta) ou **vale-troca** (código de 8 caracteres, válido por
+  90 dias, aceita uso parcial) — o vale é uma forma de pagamento no caixa. O estoque volta automaticamente.
+- **Compras (retaguarda):** fornecedores, entrada manual com vários itens e **importação do XML da NF-e** do
+  fornecedor. O sistema aprende o vínculo código do fornecedor → produto e o fator de conversão (ex.: caixa com 12),
+  atualiza custo e NCM e recusa nota já lançada.
+- **Estoque mínimo** por produto, com alerta na lista de produtos e relatório de reposição.
+- **Relatórios:** vendas por dia, formas de pagamento, mais vendidos e margem, caixas, divergências por operador e
+  estoque abaixo do mínimo; exportação CSV (Excel) e impressão A4. O fechamento de caixa pode ser impresso na hora
+  ou reimpresso pela lista de caixas.
 
 ### Comprovante
 
@@ -194,12 +211,12 @@ servidor, instalador versionado. Falta: tela de backup/restauração, cadastro d
 
 **V0.2 Produtos e estoque** — feito: cadastro e edição de produtos (vários códigos de barras, categoria,
 custo, margem), ativação/desativação, entrada de mercadorias, ajuste por contagem com motivo, histórico de
-movimentações. Falta: cadastro de fornecedores na UI, entrada por compra com vários itens, alerta de estoque baixo.
+movimentações. Etapa 4: fornecedores na UI, entrada com vários itens, importação do XML da NF-e e estoque mínimo com alerta.
 
 **V0.3 Caixa e vendas** — feito: abertura, venda, itens, desconto por item com liberação de supervisor,
 pagamento dividido (dinheiro/cartão/Pix), troco, finalização atômica e idempotente, sangria, suprimento,
 fechamento com divergência, cancelamento com estorno e supervisor, comprovante não fiscal com reimpressão,
-número sequencial de venda. Falta: devolução parcial, relatório de fechamento impresso.
+número sequencial de venda. Etapa 4: devolução parcial com vale-troca e fechamento impresso.
 
 **Concorrência venda × fechamento:** toda operação incrementa a revisão da sessão de caixa (`RowVersion`);
 uma venda e um fechamento simultâneos não podem ambos ser gravados — o perdedor recebe uma mensagem e nada

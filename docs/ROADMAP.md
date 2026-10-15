@@ -9,6 +9,25 @@ Decisões tomadas (14/10/2026):
 
 Cada etapa termina com testes automatizados passando e um critério de aceite verificável.
 
+## Pendências reservadas para depois (decisão de 14/10/2026)
+
+Itens conhecidos que ficam fora das etapas em andamento e serão retomados antes da operação em produção:
+
+**Dependem do cliente / contador**
+- Escolha da UF, certificado A1, credenciamento NFC-e e CSC para homologar na SEFAZ real.
+- Validação dos perfis tributários, NCMs e da aplicação de IBS/CBS (reforma tributária) por regime.
+- Lojas para o piloto (3 a 5) e definição do segmento (impacta balança/produtos por peso).
+
+**Fiscal (complementos da Etapa 3)**
+- Inutilização de numeração; validação local pelos XSD oficiais; tributos aproximados (Lei 12.741/IBPT).
+- CSOSN 101/201/202/203/900 e CST 10/20/30/51/70/90; grupos IBS/CBS.
+- NF-e de entrada para devoluções de venda com NFC-e (a devolução da Etapa 4 é só operacional: estoque e caixa).
+
+**Infraestrutura (já previstos nas Etapas 5–7)**
+- Backup automático com cópia externa; senha do banco cifrada; serviço central para vários caixas.
+- Instalador compilado e testado em Windows limpo, com PostgreSQL embutido; atualização automática.
+- Desempenho em telas pequenas (1366×768) e com catálogo grande (meta de busca < 300 ms).
+
 ## Etapa 1 — Migração para PostgreSQL  ✅ concluída
 
 - Provedor EF Core Npgsql, migrações recriadas.
@@ -57,7 +76,7 @@ Situação (14/10/2026):
   grupos IBS/CBS da reforma tributária (avaliar obrigatoriedade por regime com o contador);
   CSOSN 101/201/202/203/900 e CST 10/20/30/51/70/90.
 
-## Etapa 4 — Operação do dia a dia
+## Etapa 4 — Operação do dia a dia  ✅ concluída
 
 - Trocar operador / bloquear tela sem fechar o sistema.
 - Alterar quantidade de item, consulta de preço, devolução parcial e troca.
@@ -66,6 +85,13 @@ Situação (14/10/2026):
 - Relatórios: vendas por período, mais vendidos, margem, fechamento de caixa impresso, divergências por operador.
 
 **Aceite:** um dia completo de loja (abertura, vendas, trocas, sangrias, fechamento, relatório) sem recorrer ao banco.
+
+Feito: bloqueio/troca de operador (Ctrl+L), alterar quantidade (Ctrl+Q), consulta de preço (Ctrl+P), devolução parcial
+com reembolso em dinheiro ou vale-troca (Ctrl+T) e venda paga com vale; fornecedores, entrada manual com vários itens e
+importação do XML da NF-e (vínculo por código do fornecedor ou GTIN, fator de conversão, custo e NCM atualizados);
+estoque mínimo com alerta; relatórios (vendas por dia, formas de pagamento, mais vendidos e margem, caixas, divergências
+por operador, estoque abaixo do mínimo) com CSV e impressão A4; fechamento de caixa impresso. Aceite coberto por teste de
+integração (dia completo) e percorrido pela interface.
 
 ## Etapa 5 — Vários caixas e robustez
 

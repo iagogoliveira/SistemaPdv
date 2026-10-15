@@ -25,19 +25,36 @@ public class Supplier : Entity
 {
     private Supplier() { Name = null!; }
 
-    public Supplier(string name, string? document)
+    public Supplier(string name, string? document, string? phone = null, string? email = null)
     {
-        if (string.IsNullOrWhiteSpace(name)) throw new DomainException("Nome do fornecedor é obrigatório.");
-        Name = name.Trim();
-        Document = document?.Trim();
+        Update(name, document, phone, email);
         IsActive = true;
     }
 
     public string Name { get; private set; }
+
+    /// <summary>CNPJ ou CPF sem pontuação (opcional, mas validado quando informado).</summary>
     public string? Document { get; private set; }
+
+    public string? Phone { get; private set; }
+    public string? Email { get; private set; }
     public bool IsActive { get; private set; }
 
+    [MemberNotNull(nameof(Name))]
+    public void Update(string name, string? document, string? phone, string? email)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new DomainException("Nome do fornecedor é obrigatório.");
+        if (!string.IsNullOrWhiteSpace(document) && !TaxDocuments.IsValidCpfOrCnpj(document))
+            throw new DomainException("CNPJ/CPF do fornecedor inválido.");
+        Name = name.Trim();
+        Document = string.IsNullOrWhiteSpace(document) ? null : TaxDocuments.Normalize(document);
+        Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
+        Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+    }
+
     public void Deactivate() => IsActive = false;
+
+    public void Activate() => IsActive = true;
 }
 
 public class Product : Entity
@@ -72,6 +89,15 @@ public class Product : Entity
     public Guid? TaxProfileId { get; private set; }
 
     public bool HasFiscalData => Ncm is not null;
+
+    /// <summary>Estoque mínimo para alerta de reposição (vazio = sem alerta).</summary>
+    public decimal? MinimumStock { get; private set; }
+
+    public void SetMinimumStock(decimal? minimum)
+    {
+        if (minimum < 0) throw new DomainException("Estoque mínimo não pode ser negativo.");
+        MinimumStock = minimum is null ? null : Money.RoundQuantity(minimum.Value);
+    }
 
     public void SetFiscalData(string? ncm, string? cest, ProductOrigin origin, Guid? taxProfileId)
     {

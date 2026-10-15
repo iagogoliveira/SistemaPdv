@@ -27,6 +27,16 @@ public sealed class ProductLookupService(IPdvDbContext db)
             .ToListAsync(ct);
     }
 
+    /// <summary>Consulta de preço no caixa: código de barras ou parte do nome (até 10 resultados).</summary>
+    public async Task<IReadOnlyList<(ProductLookupItem Product, decimal Stock)>> PriceCheckAsync(string term, CancellationToken ct = default)
+    {
+        var found = await FindByBarcodeAsync(term, ct) is { } byCode ? [byCode] : await SearchAsync(term, 10, ct);
+        var ids = found.Select(f => f.ProductId).ToList();
+        var stock = await db.StockMovements.Where(m => ids.Contains(m.ProductId)).GroupBy(m => m.ProductId)
+            .Select(g => new { g.Key, Total = g.Sum(m => m.Quantity) }).ToDictionaryAsync(x => x.Key, x => x.Total, ct);
+        return found.Select(f => (f, stock.GetValueOrDefault(f.ProductId))).ToList();
+    }
+
     public async Task<decimal> GetStockAsync(Guid productId, CancellationToken ct = default) =>
         await db.StockMovements.Where(m => m.ProductId == productId).SumAsync(m => (decimal?)m.Quantity, ct) ?? 0;
 }

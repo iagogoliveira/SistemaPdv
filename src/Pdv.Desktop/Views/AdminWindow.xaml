@@ -17,7 +17,7 @@
                 </Border>
                 <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="Retaguarda" Foreground="White" FontSize="20" FontWeight="Bold" FontFamily="{StaticResource DisplayFont}" />
-                    <TextBlock Text="Produtos, estoque, usuários e dados fiscais da loja" Foreground="#BFDBFE" FontSize="12" />
+                    <TextBlock Text="Produtos, compras, relatórios, usuários e dados fiscais da loja" Foreground="#BFDBFE" FontSize="12" />
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -181,6 +181,119 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+
+            <!-- ===== Compras ===== -->
+            <TabItem Visibility="{Binding ShowProductsTab, Converter={StaticResource BoolToVisibility}}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:IconView Data="{StaticResource Icon.Truck}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"
+                                     Width="18" Height="18" Margin="0,0,8,0" />
+                        <TextBlock Text="Compras" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="400" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Style="{StaticResource Card}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Fornecedores" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
+                            <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                                <ui:IconButton Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Plus}" Content="Novo"
+                                               Command="{Binding NewSupplierCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Icon="{StaticResource Icon.Edit}" Content="Editar" Command="{Binding EditSelectedSupplierCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Icon="{StaticResource Icon.Power}" Content="Ativar/desativar" Command="{Binding ToggleSupplierActiveCommand}" Margin="0" />
+                            </WrapPanel>
+                            <DataGrid ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="FORNECEDOR" Width="*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Document}" FontSize="11.5" Foreground="{StaticResource MutedBrush}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridCheckBoxColumn Header="ATIVO" Binding="{Binding IsActive}" Width="60" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                    <Border Grid.Column="2" Style="{StaticResource Card}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Entradas de mercadorias" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
+                            <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                                <ui:IconButton Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Receipt}" Content="Importar XML da NF-e"
+                                               Command="{Binding ImportPurchaseXmlCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Icon="{StaticResource Icon.Plus}" Content="Entrada manual" Command="{Binding ManualPurchaseCommand}" Margin="0" />
+                            </WrapPanel>
+                            <DataGrid ItemsSource="{Binding Purchases}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="DATA" Binding="{Binding CreatedAt, StringFormat={}{0:dd/MM/yyyy HH:mm}}" Width="140" />
+                                    <DataGridTextColumn Header="FORNECEDOR" Binding="{Binding SupplierName}" Width="*" />
+                                    <DataGridTextColumn Header="NOTA" Binding="{Binding InvoiceNumber}" Width="90" />
+                                    <DataGridTextColumn Header="ITENS" Binding="{Binding Items}" Width="60" ElementStyle="{StaticResource NumericCell}" />
+                                    <DataGridTextColumn Header="TOTAL" Binding="{Binding Total, StringFormat=C}" Width="110" ElementStyle="{StaticResource NumericCell}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ===== Relatórios ===== -->
+            <TabItem Visibility="{Binding CanViewReports, Converter={StaticResource BoolToVisibility}}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:IconView Data="{StaticResource Icon.Clipboard}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"
+                                     Width="18" Height="18" Margin="0,0,8,0" />
+                        <TextBlock Text="Relatórios" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Relatório" Style="{StaticResource Caption}" />
+                                <ComboBox ItemsSource="{Binding ReportKinds}" SelectedItem="{Binding SelectedReport}" DisplayMemberPath="Label" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="De" Style="{StaticResource Caption}" />
+                                <DatePicker SelectedDate="{Binding ReportFrom}" Margin="0,4,0,0" Padding="6" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Até" Style="{StaticResource Caption}" />
+                                <DatePicker SelectedDate="{Binding ReportTo}" Margin="0,4,0,0" Padding="6" />
+                            </StackPanel>
+                            <ui:IconButton Grid.Column="6" Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Search}" Content="Gerar"
+                                           Command="{Binding RunReportCommand}" VerticalAlignment="Bottom" Margin="0" />
+                        </Grid>
+                        <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                            <WrapPanel DockPanel.Dock="Right">
+                                <ui:IconButton Icon="{StaticResource Icon.Printer}" Content="Reimprimir fechamento" Command="{Binding PrintCashClosingCommand}"
+                                               Margin="0,0,8,0" Visibility="{Binding IsCashReport, Converter={StaticResource BoolToVisibility}}" />
+                                <ui:IconButton Icon="{StaticResource Icon.CashOut}" Content="Exportar CSV" Command="{Binding ExportReportCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Icon="{StaticResource Icon.Printer}" Content="Imprimir" Command="{Binding PrintReportCommand}" Margin="0" />
+                            </WrapPanel>
+                            <TextBlock Text="{Binding ReportSummary}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        </DockPanel>
+                        <DataGrid x:Name="ReportGrid" ItemsSource="{Binding ReportRows}" SelectedItem="{Binding SelectedReportRow}" />
                     </DockPanel>
                 </Border>
             </TabItem>

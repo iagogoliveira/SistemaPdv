@@ -10,19 +10,17 @@ using Pdv.Domain.Inventory;
 namespace Pdv.Application.Catalog;
 
 public sealed record ProductListItem(Guid Id, string Name, string Unit, string? CategoryName, decimal SalePrice, decimal CostPrice,
-    decimal Stock, string Barcodes, bool IsActive, bool HasFiscalData = false)
+    decimal Stock, string Barcodes, bool IsActive, bool HasFiscalData = false, decimal? MinimumStock = null)
 {
-    public const decimal LowStockThreshold = 5;
-
     public decimal? MarginPercent => SalePrice == 0 ? null : Money.Round((SalePrice - CostPrice) / SalePrice * 100);
 
-    /// <summary>Destaque visual simples enquanto não existe estoque mínimo por produto.</summary>
-    public bool IsLowStock => IsActive && Stock <= LowStockThreshold;
+    /// <summary>Abaixo (ou no) estoque mínimo definido no produto.</summary>
+    public bool IsLowStock => IsActive && MinimumStock is { } minimum && Stock <= minimum;
 }
 
 public sealed record ProductEditModel(Guid? Id, string Name, string Unit, string? CategoryName, decimal SalePrice, decimal CostPrice,
     IReadOnlyList<string> Barcodes, string? Ncm = null, string? Cest = null, ProductOrigin Origin = ProductOrigin.Nacional,
-    Guid? TaxProfileId = null);
+    Guid? TaxProfileId = null, decimal? MinimumStock = null);
 
 public sealed record StockMovementListItem(DateTimeOffset OccurredAt, StockMovementType Type, decimal Quantity, string? Reason, string UserName);
 
@@ -42,7 +40,7 @@ public sealed class ProductAdminService(IPdvDbContext db, PermissionChecker perm
         var rows = await query.OrderBy(p => p.Name).Take(take)
             .Select(p => new
             {
-                p.Id, p.Name, p.Unit, p.SalePrice, p.CostPrice, p.IsActive, p.Ncm,
+                p.Id, p.Name, p.Unit, p.SalePrice, p.CostPrice, p.IsActive, p.Ncm, p.MinimumStock,
                 Category = db.Categories.Where(c => c.Id == p.CategoryId).Select(c => c.Name).FirstOrDefault(),
                 Stock = db.StockMovements.Where(m => m.ProductId == p.Id).Sum(m => (decimal?)m.Quantity) ?? 0,
                 Codes = p.Barcodes.Select(b => b.Code).ToList(),
@@ -50,7 +48,7 @@ public sealed class ProductAdminService(IPdvDbContext db, PermissionChecker perm
             .ToListAsync(ct);
 
         return rows.Select(r => new ProductListItem(r.Id, r.Name, r.Unit, r.Category, r.SalePrice, r.CostPrice, r.Stock,
-            string.Join(", ", r.Codes), r.IsActive, r.Ncm != null)).ToList();
+            string.Join(", ", r.Codes), r.IsActive, r.Ncm != null, r.MinimumStock)).ToList();
     }
 
     public async Task<ProductEditModel?> GetAsync(Guid id, CancellationToken ct = default)
@@ -59,7 +57,7 @@ public sealed class ProductAdminService(IPdvDbContext db, PermissionChecker perm
         if (p is null) return null;
         var category = p.CategoryId is null ? null : await db.Categories.Where(c => c.Id == p.CategoryId).Select(c => c.Name).FirstOrDefaultAsync(ct);
         return new ProductEditModel(p.Id, p.Name, p.Unit, category, p.SalePrice, p.CostPrice, p.Barcodes.Select(b => b.Code).ToList(),
-            p.Ncm, p.Cest, p.Origin, p.TaxProfileId);
+            p.Ncm, p.Cest, p.Origin, p.TaxProfileId, p.MinimumStock);
     }
 
     public async Task<IReadOnlyList<string>> ListCategoriesAsync(CancellationToken ct = default) =>
@@ -93,6 +91,7 @@ public sealed class ProductAdminService(IPdvDbContext db, PermissionChecker perm
                 profile.EnsureCompatibleWith(await db.Companies.Select(c => c.TaxRegime).FirstAsync(ct));
             }
             product.SetFiscalData(model.Ncm, model.Cest, model.Origin, model.TaxProfileId);
+            product.SetMinimumStock(model.MinimumStock);
 
             var conflicts = await db.ProductBarcodes.Where(b => codes.Contains(b.Code) && b.ProductId != product.Id)
                 .Select(b => b.Code).ToListAsync(ct);

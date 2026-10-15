@@ -8,6 +8,7 @@ public enum StockMovementType
     Sale,
     SaleCancellation,
     Adjustment,
+    SaleReturn,
 }
 
 /// <summary>
@@ -52,6 +53,12 @@ public class StockMovement : Entity
 
     public static StockMovement ForSaleCancellation(Guid productId, decimal quantitySold, Guid saleId, Guid userId, DateTimeOffset at) =>
         new(productId, StockMovementType.SaleCancellation, quantitySold, null, userId, at, saleId);
+
+    public static StockMovement ForSaleReturn(Guid productId, decimal quantity, Guid returnId, Guid userId, DateTimeOffset at)
+    {
+        if (quantity <= 0) throw new DomainException("Quantidade devolvida deve ser positiva.");
+        return new(productId, StockMovementType.SaleReturn, quantity, null, userId, at, returnId);
+    }
 
     public static StockMovement ForPurchase(Guid productId, decimal quantity, Guid? purchaseId, Guid userId, DateTimeOffset at, string? note = null)
     {

@@ -71,12 +71,11 @@ public interface IDialogService
     void ShowReceipt(ReceiptData receipt, NfceInfo? fiscal = null);
     bool Confirm(string message);
     string? PickFile(string title, string filter);
+    string? PickSaveFile(string title, string filter, string fileName);
 }
 
 public sealed class DialogService(ReceiptPrinter printer) : IDialogService
 {
-    private const string Caption = "Sistema PDV";
-
     private static Window? Owner => System.Windows.Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
         ?? System.Windows.Application.Current.MainWindow;
 
@@ -122,9 +121,12 @@ public sealed class DialogService(ReceiptPrinter printer) : IDialogService
         return dialog.ShowDialog(Owner) == true ? dialog.FileName : null;
     }
 
-    private static void Show(string message, MessageBoxImage image)
+    public string? PickSaveFile(string title, string filter, string fileName)
     {
-        if (Owner is { } owner) MessageBox.Show(owner, message, Caption, MessageBoxButton.OK, image);
-        else MessageBox.Show(message, Caption, MessageBoxButton.OK, image);
+        var dialog = new Microsoft.Win32.SaveFileDialog { Title = title, Filter = filter, FileName = fileName, OverwritePrompt = true };
+        return dialog.ShowDialog(Owner) == true ? dialog.FileName : null;
     }
+
+    private static void Show(string message, MessageBoxImage image) =>
+        new MessageDialog(message, image == MessageBoxImage.Warning) { Owner = Owner }.ShowDialog();
 }

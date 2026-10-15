@@ -315,6 +315,8 @@ public sealed class ZeusNfceGateway : INfceGateway
                 PaymentMethod.DebitCard => FormaPagamento.fpCartaoDebito,
                 // Pix sem integração com o PSP (chave/QR estático).
                 PaymentMethod.Pix => FormaPagamento.fpPagamentoInstantaneoPIXEstatico,
+                // Vale-troca da própria loja.
+                PaymentMethod.ExchangeVoucher => FormaPagamento.fpCreditoEmLoja,
                 _ => FormaPagamento.fpOutro,
             },
             xPag = p.Method == PaymentMethod.Other ? "Outros" : null,

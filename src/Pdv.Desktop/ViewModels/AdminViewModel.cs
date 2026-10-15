@@ -46,6 +46,8 @@ public partial class AdminViewModel(ScopedRunner runner, AppState state, IDialog
         if (ShowProductsTab) await SearchProductsAsync();
         if (CanManageUsers) await LoadUsersAsync();
         await LoadFiscalAsync();
+        await LoadPurchasesAsync();
+        LoadReports();
     }
 
     partial void OnIncludeInactiveChanged(bool value) => SearchProductsCommand.Execute(null);
@@ -270,6 +272,7 @@ public partial class ProductForm(IReadOnlyList<string> categories, IReadOnlyList
 
     public IReadOnlyList<Choice<ProductOrigin>> Origins { get; } = FiscalLabels.Origins;
 
+    [ObservableProperty] private string _minimumStock = "";
     [ObservableProperty] private string _ncm = "";
     [ObservableProperty] private string _cest = "";
     [ObservableProperty] private Choice<ProductOrigin>? _origin = FiscalLabels.Origins[0];
@@ -286,6 +289,7 @@ public partial class ProductForm(IReadOnlyList<string> categories, IReadOnlyList
     public void Load(ProductEditModel m)
     {
         Title = "Editar produto";
+        MinimumStock = m.MinimumStock?.ToString("0.###", CultureInfo.CurrentCulture) ?? "";
         Ncm = m.Ncm is { Length: 8 } n ? $"{n[..4]}.{n[4..6]}.{n[6..]}" : m.Ncm ?? "";
         Cest = m.Cest ?? "";
         Origin = FiscalLabels.Origins.First(o => o.Value == m.Origin);
@@ -310,10 +314,16 @@ public partial class ProductForm(IReadOnlyList<string> categories, IReadOnlyList
             error = "Custo inválido.";
             return false;
         }
+        decimal? minimum = null;
+        if (!string.IsNullOrWhiteSpace(MinimumStock))
+        {
+            if (!CheckoutViewModel.TryParseDecimal(MinimumStock, out var min) || min < 0) { error = "Estoque mínimo inválido."; return false; }
+            minimum = min;
+        }
         var codes = Barcodes.Split(['\r', '\n', ',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         model = new ProductEditModel(id, Name, Unit, string.IsNullOrWhiteSpace(Category) ? null : Category, sale, cost, codes,
             string.IsNullOrWhiteSpace(Ncm) ? null : Ncm, string.IsNullOrWhiteSpace(Cest) ? null : Cest,
-            Origin?.Value ?? ProductOrigin.Nacional, TaxProfile?.Value);
+            Origin?.Value ?? ProductOrigin.Nacional, TaxProfile?.Value, minimum);
         return true;
     }
 }

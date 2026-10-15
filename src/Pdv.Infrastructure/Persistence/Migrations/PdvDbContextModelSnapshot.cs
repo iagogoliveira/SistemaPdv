@@ -196,6 +196,10 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<decimal?>("MinimumStock")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -265,6 +269,10 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -273,7 +281,15 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
+                    b.Property<string>("Phone")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Document")
+                        .IsUnique()
+                        .HasFilter("\"Document\" IS NOT NULL");
 
                     b.ToTable("Suppliers");
                 });
@@ -588,6 +604,170 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                     b.ToTable("StockMovements");
                 });
 
+            modelBuilder.Entity("Pdv.Domain.Purchases.Purchase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccessKey")
+                        .HasMaxLength(44)
+                        .HasColumnType("character varying(44)");
+
+                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ConfirmedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("InvoiceNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("InvoiceSeries")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<DateTimeOffset?>("IssuedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccessKey")
+                        .IsUnique()
+                        .HasFilter("\"AccessKey\" IS NOT NULL");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("SupplierId");
+
+                    b.ToTable("Purchases");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Purchases.PurchaseItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PurchaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<string>("SupplierCode")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("SupplierDescription")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("PurchaseId");
+
+                    b.ToTable("PurchaseItem");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Purchases.SupplierProduct", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ConversionFactor")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SupplierCode")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SupplierId", "SupplierCode")
+                        .IsUnique();
+
+                    b.ToTable("SupplierProducts");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Sales.ExchangeVoucher", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("Balance")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("ExchangeVouchers");
+                });
+
             modelBuilder.Entity("Pdv.Domain.Sales.Payment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -601,6 +781,9 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Reference")
+                        .HasColumnType("text");
 
                     b.Property<Guid>("SaleId")
                         .HasColumnType("uuid");
@@ -795,6 +978,10 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                         .HasMaxLength(6)
                         .HasColumnType("character varying(6)");
 
+                    b.Property<decimal?>("UnitCost")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -807,6 +994,85 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("SaleItem");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Sales.SaleReturn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorizedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ExchangeVoucherId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<string>("RefundMethod")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TerminalId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorizedByUserId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ExchangeVoucherId");
+
+                    b.HasIndex("SaleId");
+
+                    b.ToTable("SaleReturns");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Sales.SaleReturnItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<decimal>("RefundAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("SaleLineNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SaleReturnId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SaleReturnId");
+
+                    b.ToTable("SaleReturnItem");
                 });
 
             modelBuilder.Entity("Pdv.Domain.Stores.Company", b =>
@@ -1013,6 +1279,45 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Pdv.Domain.Purchases.Purchase", b =>
+                {
+                    b.HasOne("Pdv.Domain.Catalog.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Purchases.PurchaseItem", b =>
+                {
+                    b.HasOne("Pdv.Domain.Catalog.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pdv.Domain.Purchases.Purchase", null)
+                        .WithMany("Items")
+                        .HasForeignKey("PurchaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Purchases.SupplierProduct", b =>
+                {
+                    b.HasOne("Pdv.Domain.Catalog.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pdv.Domain.Catalog.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Pdv.Domain.Sales.Payment", b =>
                 {
                     b.HasOne("Pdv.Domain.Sales.Sale", null)
@@ -1064,6 +1369,41 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                     b.HasOne("Pdv.Domain.Sales.Sale", null)
                         .WithMany("Items")
                         .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Sales.SaleReturn", b =>
+                {
+                    b.HasOne("Pdv.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorizedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pdv.Domain.Sales.ExchangeVoucher", null)
+                        .WithMany()
+                        .HasForeignKey("ExchangeVoucherId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pdv.Domain.Sales.Sale", null)
+                        .WithMany()
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Sales.SaleReturnItem", b =>
+                {
+                    b.HasOne("Pdv.Domain.Catalog.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pdv.Domain.Sales.SaleReturn", null)
+                        .WithMany("Items")
+                        .HasForeignKey("SaleReturnId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -1166,11 +1506,21 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                     b.Navigation("Barcodes");
                 });
 
+            modelBuilder.Entity("Pdv.Domain.Purchases.Purchase", b =>
+                {
+                    b.Navigation("Items");
+                });
+
             modelBuilder.Entity("Pdv.Domain.Sales.Sale", b =>
                 {
                     b.Navigation("Items");
 
                     b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Sales.SaleReturn", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

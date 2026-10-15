@@ -64,9 +64,12 @@
                         </StackPanel>
                     </Grid>
 
+                    <TextBlock Text="Estoque mínimo (alerta de reposição)" Style="{StaticResource Caption}" />
+                    <TextBox Text="{Binding MinimumStock, UpdateSourceTrigger=PropertyChanged}" Tag="vazio = sem alerta" Margin="0,4,0,12" />
+
                     <TextBlock Text="Códigos de barras (um por linha)" Style="{StaticResource Caption}" />
                     <TextBox Text="{Binding Barcodes, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"
-                             AcceptsReturn="True" Height="96" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" />
+                             AcceptsReturn="True" Height="76" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" />
                 </StackPanel>
             </Border>
 

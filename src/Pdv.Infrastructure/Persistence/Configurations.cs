@@ -6,6 +6,7 @@ using Pdv.Domain.Catalog;
 using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Inventory;
+using Pdv.Domain.Purchases;
 using Pdv.Domain.Sales;
 using Pdv.Domain.Stores;
 
@@ -147,6 +148,85 @@ internal sealed class SupplierConfiguration : IEntityTypeConfiguration<Supplier>
     {
         b.Property(x => x.Name).HasMaxLength(150);
         b.Property(x => x.Document).HasMaxLength(20);
+        b.Property(x => x.Phone).HasMaxLength(20);
+        b.Property(x => x.Email).HasMaxLength(120);
+        b.HasIndex(x => x.Document).IsUnique().HasFilter("\"Document\" IS NOT NULL");
+    }
+}
+
+internal sealed class PurchaseConfiguration : IEntityTypeConfiguration<Purchase>
+{
+    public void Configure(EntityTypeBuilder<Purchase> b)
+    {
+        b.Property(x => x.InvoiceNumber).HasMaxLength(20);
+        b.Property(x => x.InvoiceSeries).HasMaxLength(5);
+        b.Property(x => x.AccessKey).HasMaxLength(44);
+        b.Ignore(x => x.Total);
+        // A mesma NF-e de fornecedor não entra duas vezes.
+        b.HasIndex(x => x.AccessKey).IsUnique().HasFilter("\"AccessKey\" IS NOT NULL");
+        b.HasIndex(x => x.CreatedAt);
+        b.HasOne<Supplier>().WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.PurchaseId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class PurchaseItemConfiguration : IEntityTypeConfiguration<PurchaseItem>
+{
+    public void Configure(EntityTypeBuilder<PurchaseItem> b)
+    {
+        b.Property(x => x.Quantity).HasPrecision(18, 3);
+        b.Property(x => x.UnitCost).HasPrecision(18, 4);
+        b.Property(x => x.SupplierCode).HasMaxLength(60);
+        b.Property(x => x.SupplierDescription).HasMaxLength(120);
+        b.HasOne<Product>().WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class SupplierProductConfiguration : IEntityTypeConfiguration<SupplierProduct>
+{
+    public void Configure(EntityTypeBuilder<SupplierProduct> b)
+    {
+        b.Property(x => x.SupplierCode).HasMaxLength(60);
+        b.Property(x => x.ConversionFactor).HasPrecision(18, 3);
+        b.HasIndex(x => new { x.SupplierId, x.SupplierCode }).IsUnique();
+        b.HasOne<Supplier>().WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<Product>().WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class SaleReturnConfiguration : IEntityTypeConfiguration<SaleReturn>
+{
+    public void Configure(EntityTypeBuilder<SaleReturn> b)
+    {
+        b.Property(x => x.Reason).HasMaxLength(250);
+        b.Ignore(x => x.Total);
+        b.HasIndex(x => x.SaleId);
+        b.HasIndex(x => x.CreatedAt);
+        b.HasOne<Sale>().WithMany().HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<User>().WithMany().HasForeignKey(x => x.AuthorizedByUserId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<ExchangeVoucher>().WithMany().HasForeignKey(x => x.ExchangeVoucherId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.SaleReturnId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class SaleReturnItemConfiguration : IEntityTypeConfiguration<SaleReturnItem>
+{
+    public void Configure(EntityTypeBuilder<SaleReturnItem> b)
+    {
+        b.Property(x => x.Description).HasMaxLength(120);
+        b.Property(x => x.Quantity).HasPrecision(18, 3);
+        b.HasOne<Product>().WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class ExchangeVoucherConfiguration : IEntityTypeConfiguration<ExchangeVoucher>
+{
+    public void Configure(EntityTypeBuilder<ExchangeVoucher> b)
+    {
+        b.Property(x => x.Code).HasMaxLength(8);
+        b.HasIndex(x => x.Code).IsUnique();
+        // Dois caixas não conseguem gastar o mesmo saldo ao mesmo tempo.
+        b.Property<uint>("Version").IsRowVersion();
     }
 }
 
@@ -158,6 +238,7 @@ internal sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
         b.Property(x => x.Unit).HasMaxLength(6);
         b.Property(x => x.Ncm).HasMaxLength(8);
         b.Property(x => x.Cest).HasMaxLength(7);
+        b.Property(x => x.MinimumStock).HasPrecision(18, 3);
         b.Ignore(x => x.HasFiscalData);
         b.HasIndex(x => x.Name);
         b.HasOne<TaxProfile>().WithMany().HasForeignKey(x => x.TaxProfileId).OnDelete(DeleteBehavior.Restrict);
@@ -254,6 +335,7 @@ internal sealed class SaleItemConfiguration : IEntityTypeConfiguration<SaleItem>
         b.Property(x => x.IcmsRate).HasPrecision(7, 4);
         b.Property(x => x.PisRate).HasPrecision(7, 4);
         b.Property(x => x.CofinsRate).HasPrecision(7, 4);
+        b.Property(x => x.UnitCost).HasPrecision(18, 4);
         b.Ignore(x => x.HasFiscalData);
         b.HasIndex(x => new { x.SaleId, x.LineNumber }).IsUnique();
         b.HasOne<Product>().WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);

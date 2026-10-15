@@ -27,6 +27,9 @@ public enum PaymentMethod
     DebitCard,
     Pix,
     Other,
+
+    /// <summary>Vale-troca gerado por devolução (crédito da loja).</summary>
+    ExchangeVoucher,
 }
 
 /// <summary>
@@ -93,10 +96,10 @@ public class Sale : Entity
     public decimal PaidTotal => _payments.Sum(p => p.Amount);
 
     public SaleItem AddItem(Guid productId, string description, string unit, decimal quantity, decimal unitPrice, decimal discount = 0,
-        ItemFiscalData? fiscal = null)
+        ItemFiscalData? fiscal = null, decimal? unitCost = null)
     {
         EnsureDraft();
-        var item = new SaleItem(Id, _items.Count + 1, productId, description, unit, quantity, unitPrice, discount, fiscal);
+        var item = new SaleItem(Id, _items.Count + 1, productId, description, unit, quantity, unitPrice, discount, fiscal, unitCost);
         _items.Add(item);
         Recalculate();
         return item;
@@ -131,10 +134,10 @@ public class Sale : Entity
         DiscountAuthorizedByUserId = userId;
     }
 
-    public Payment AddPayment(PaymentMethod method, decimal amount)
+    public Payment AddPayment(PaymentMethod method, decimal amount, string? reference = null)
     {
         EnsureDraft();
-        var payment = new Payment(Id, method, amount);
+        var payment = new Payment(Id, method, amount, reference);
         _payments.Add(payment);
         return payment;
     }
@@ -192,8 +195,9 @@ public class SaleItem : Entity
     private SaleItem() { Description = Unit = null!; }
 
     internal SaleItem(Guid saleId, int lineNumber, Guid productId, string description, string unit,
-        decimal quantity, decimal unitPrice, decimal discount, ItemFiscalData? fiscal)
+        decimal quantity, decimal unitPrice, decimal discount, ItemFiscalData? fiscal, decimal? unitCost)
     {
+        UnitCost = unitCost;
         if (quantity <= 0) throw new DomainException("Quantidade deve ser positiva.");
         if (unitPrice < 0) throw new DomainException("Preço unitário não pode ser negativo.");
         SaleId = saleId;
@@ -235,6 +239,9 @@ public class SaleItem : Entity
     public decimal Discount { get; private set; }
     public decimal Total { get; private set; }
 
+    /// <summary>Custo do produto no momento da venda (para margem nos relatórios).</summary>
+    public decimal? UnitCost { get; private set; }
+
     // ---- Retrato fiscal (ver ItemFiscalData) ----
     public string? Ncm { get; private set; }
     public string? Cest { get; private set; }
@@ -256,8 +263,9 @@ public class Payment : Entity
 {
     private Payment() { }
 
-    internal Payment(Guid saleId, PaymentMethod method, decimal amount)
+    internal Payment(Guid saleId, PaymentMethod method, decimal amount, string? reference = null)
     {
+        Reference = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim();
         if (Money.Round(amount) <= 0) throw new DomainException("Valor do pagamento deve ser positivo.");
         SaleId = saleId;
         Method = method;
@@ -267,4 +275,7 @@ public class Payment : Entity
     public Guid SaleId { get; private set; }
     public PaymentMethod Method { get; private set; }
     public decimal Amount { get; private set; }
+
+    /// <summary>Identificação do meio, ex.: código do vale-troca usado.</summary>
+    public string? Reference { get; private set; }
 }

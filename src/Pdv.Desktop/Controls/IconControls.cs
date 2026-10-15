@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 
 namespace Pdv.Desktop.Controls;
@@ -53,4 +55,12 @@ public class IconButton : Button
         get => (string?)GetValue(HintProperty);
         set => SetValue(HintProperty, value);
     }
+}
+
+/// <summary>Inverte um bool em bindings (ex.: IsReadOnly = !IsEditable).</summary>
+public sealed class InvertBoolConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value is not true;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => value is not true;
 }

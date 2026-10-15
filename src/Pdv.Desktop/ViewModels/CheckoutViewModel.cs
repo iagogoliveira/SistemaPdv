@@ -6,6 +6,7 @@ using Pdv.Application;
 using Pdv.Application.Cash;
 using Pdv.Application.Catalog;
 using Pdv.Application.Fiscal;
+using Pdv.Application.Reports;
 using Pdv.Application.Sales;
 using Pdv.Desktop.Services;
 using Pdv.Desktop.Views;
@@ -19,7 +20,7 @@ namespace Pdv.Desktop.ViewModels;
 
 public sealed record PaymentOption(PaymentMethod Method, string Label);
 
-public sealed record PaymentEntry(PaymentMethod Method, string Label, decimal Amount);
+public sealed record PaymentEntry(PaymentMethod Method, string Label, decimal Amount, string? Reference = null);
 
 public partial class CartLine(int number, ProductLookupItem product, decimal quantity) : ObservableObject
 {
@@ -46,7 +47,9 @@ public partial class CheckoutViewModel(
     SupervisorAuthorizer authorizer,
     ReceiptPrinter printer,
     Func<AdminViewModel> adminFactory,
-    INfceSettingsStore nfceSettings) : ObservableObject
+    INfceSettingsStore nfceSettings,
+    TicketPrinter tickets,
+    Func<LoginViewModel> loginFactory) : ObservableObject
 {
     // Chave de idempotência do carrinho atual. Só muda depois de uma venda concluída ou carrinho descartado,
     // então reenviar após timeout/erro de rede nunca duplica a venda.
@@ -68,6 +71,7 @@ public partial class CheckoutViewModel(
         new(PaymentMethod.Pix, PaymentLabels.For(PaymentMethod.Pix)),
         new(PaymentMethod.DebitCard, PaymentLabels.For(PaymentMethod.DebitCard)),
         new(PaymentMethod.CreditCard, PaymentLabels.For(PaymentMethod.CreditCard)),
+        new(PaymentMethod.ExchangeVoucher, PaymentLabels.For(PaymentMethod.ExchangeVoucher)),
     ];
 
     [ObservableProperty]
@@ -116,7 +120,8 @@ public partial class CheckoutViewModel(
     public string OperatorName => state.User?.DisplayName ?? "";
 
     public bool CanOpenAdmin => state.User is { } u &&
-        (u.Can(Permissions.ManageProducts) || u.Can(Permissions.AdjustStock) || u.Can(Permissions.ManageUsers));
+        (u.Can(Permissions.ManageProducts) || u.Can(Permissions.AdjustStock) || u.Can(Permissions.ManageUsers)
+         || u.Can(Permissions.ViewReports) || u.Can(Permissions.ManageCompany));
 
     public decimal Subtotal => Items.Sum(i => i.GrossTotal);
     public decimal DiscountTotal => Items.Sum(i => i.Discount);
@@ -203,6 +208,117 @@ public partial class CheckoutViewModel(
         StatusMessage = "Item removido.";
     }
 
+    /// <summary>Altera a quantidade do item selecionado (o desconto do item é mantido se ainda couber).</summary>
+    [RelayCommand]
+    private void ChangeQuantity()
+    {
+        var line = SelectedItem ?? Items.LastOrDefault();
+        if (line is null || !EnsureCartEditable()) return;
+        var input = dialogs.Prompt("Alterar quantidade", $"{line.Product.Name}\nNova quantidade ({line.Product.Unit}):",
+            line.Quantity.ToString("0.###", CultureInfo.CurrentCulture));
+        if (input is null) return;
+        if (!TryParseDecimal(input, out var quantity) || quantity <= 0) { dialogs.ShowError("Quantidade inválida."); return; }
+
+        var index = Items.IndexOf(line);
+        var updated = new CartLine(line.Number, line.Product, quantity);
+        updated.Discount = line.Discount <= updated.GrossTotal ? line.Discount : 0;
+        Items[index] = updated;
+        SelectedItem = updated;
+        LastItem = updated;
+        Payments.Clear();
+        StatusMessage = $"{line.Product.Name}: quantidade alterada para {quantity:0.###}.";
+    }
+
+    /// <summary>Consulta de preço e estoque sem lançar na venda.</summary>
+    [RelayCommand]
+    private async Task PriceCheckAsync()
+    {
+        var term = dialogs.Prompt("Consulta de preço", "Código de barras ou parte do nome:");
+        if (string.IsNullOrWhiteSpace(term)) return;
+        var found = await runner.RunAsync<ProductLookupService, IReadOnlyList<(ProductLookupItem Product, decimal Stock)>>(s => s.PriceCheckAsync(term));
+        if (found.Count == 0) { dialogs.ShowError("Nenhum produto encontrado."); return; }
+        if (found.Count == 1)
+        {
+            var (p, stock) = found[0];
+            dialogs.ShowInfo($"{p.Name}\n\nPreço: {p.SalePrice:C} / {p.Unit}\nEstoque: {stock:0.###} {p.Unit}");
+            return;
+        }
+        dialogs.ShowGrid("Consulta de preço", found.Select(f => new PriceRow(f.Product.Name, f.Product.Unit, f.Product.SalePrice, f.Stock)).ToList(),
+            [new GridColumn("Produto", nameof(PriceRow.Name)), new GridColumn("Un", nameof(PriceRow.Unit), Width: 50),
+             new GridColumn("Preço", nameof(PriceRow.Price), "C", 110), new GridColumn("Estoque", nameof(PriceRow.Stock), "0.###", 90)]);
+    }
+
+    public sealed record PriceRow(string Name, string Unit, decimal Price, decimal Stock);
+
+    /// <summary>Devolução/troca de itens de uma venda: dinheiro da gaveta ou vale-troca (com supervisor).</summary>
+    [RelayCommand]
+    private async Task ReturnItemsAsync()
+    {
+        if (!EnsureCashOpen()) return;
+        var input = dialogs.Prompt("Devolução / troca", "Número da venda (está no comprovante):");
+        if (string.IsNullOrWhiteSpace(input)) return;
+        if (!long.TryParse(input.Trim().TrimStart('#'), out var number)) { dialogs.ShowError("Número de venda inválido."); return; }
+
+        var sale = await runner.RunAsync<ReturnService, Result<ReturnableSale>>(s => s.GetReturnableAsync(number));
+        if (!sale.Succeeded) { dialogs.ShowError(sale.Error!); return; }
+        var form = new ReturnForm(sale.Value!);
+        if (form.Lines.Count == 0) { dialogs.ShowInfo("Todos os itens desta venda já foram devolvidos."); return; }
+
+        var dialog = new ReturnDialog(form) { Owner = System.Windows.Application.Current.MainWindow };
+        if (dialog.ShowDialog() != true) return;
+
+        var authorizerId = await authorizer.AuthorizeAsync(Permissions.CancelSale, "A devolução");
+        if (authorizerId is null) return;
+
+        var result = await runner.RunAsync<ReturnService, Result<ReturnReceipt>>(s => s.CreateAsync(new CreateReturnCommand(
+            form.Sale.SaleId, dialog.Quantities, form.Method, form.Reason, authorizerId.Value, state.Terminal.Id)));
+        if (!result.Succeeded) { dialogs.ShowError(result.Error!); return; }
+
+        var r = result.Value!;
+        await RefreshCashAsync();
+        if (r.Method == RefundMethod.Cash)
+        {
+            StatusMessage = $"Devolução da venda nº {r.SaleNumber}: entregue {r.Total:C} em dinheiro.";
+            dialogs.ShowInfo($"Devolução registrada.\n\nEntregue ao cliente: {r.Total:C} em dinheiro.\nO estoque foi atualizado.");
+            return;
+        }
+
+        StatusMessage = $"Vale-troca {r.VoucherCode} de {r.Total:C} gerado (venda nº {r.SaleNumber}).";
+        if (dialogs.Confirm($"Vale-troca gerado: {r.VoucherCode}\nValor: {r.Total:C} · válido até {r.VoucherExpiresAt?.ToLocalTime():dd/MM/yyyy}\n\nImprimir o vale?"))
+        {
+            try { tickets.PrintVoucher(r, await CompanyNameAsync()); }
+            catch (Exception ex) { Log.Error(ex, "Falha ao imprimir vale-troca"); dialogs.ShowError($"Não foi possível imprimir: {ex.Message}"); }
+        }
+    }
+
+    /// <summary>Troca de operador / bloqueio: só com a venda vazia; o caixa continua aberto.</summary>
+    [RelayCommand]
+    private async Task SwitchOperatorAsync()
+    {
+        if (Items.Count > 0) { dialogs.ShowError("Conclua ou descarte a venda em andamento antes de trocar de operador."); return; }
+        var previous = state.User;
+        while (true)
+        {
+            var vm = loginFactory();
+            var window = new LoginWindow(vm) { Owner = System.Windows.Application.Current.MainWindow, Title = "Sistema PDV — Caixa bloqueado" };
+            if (window.ShowDialog() == true) break;
+            if (dialogs.Confirm("Fechar o sistema? (o caixa continua aberto para o próximo operador)"))
+            {
+                System.Windows.Application.Current.Shutdown();
+                return;
+            }
+        }
+        Log.Information("Operador trocado: {Old} → {New}", previous?.Username, state.User?.Username);
+        OnPropertyChanged(nameof(Header));
+        OnPropertyChanged(nameof(OperatorName));
+        OnPropertyChanged(nameof(CanOpenAdmin));
+        StatusMessage = $"Operador: {state.User?.DisplayName}.";
+        await RefreshCashAsync();
+    }
+
+    private async Task<string> CompanyNameAsync() =>
+        (await runner.RunAsync<CompanySettingsService, CompanySettingsModel>(s => s.GetAsync())) is { } c ? c.TradeName ?? c.LegalName : "";
+
     /// <summary>Desconto no item selecionado: valor ("2,50") ou percentual ("10%").</summary>
     [RelayCommand]
     private async Task DiscountItemAsync()
@@ -278,6 +394,12 @@ public partial class CheckoutViewModel(
         if (Items.Count == 0 || SelectedPayment is null || !EnsureCartEditable()) return;
         if (!TryReadAmount(out var amount)) return;
 
+        if (SelectedPayment.Method == PaymentMethod.ExchangeVoucher)
+        {
+            await AddVoucherPaymentAsync(string.IsNullOrWhiteSpace(AmountInput) ? null : amount);
+            return;
+        }
+
         if (amount > 0)
         {
             if (SelectedPayment.Method != PaymentMethod.Cash && amount > Remaining)
@@ -293,6 +415,28 @@ public partial class CheckoutViewModel(
         else StatusMessage = $"Restam {Remaining:C}.";
     }
 
+    /// <summary>Vale-troca: pede o código, confere o saldo e lança até o valor que falta.</summary>
+    private async Task AddVoucherPaymentAsync(decimal? requested)
+    {
+        var code = dialogs.Prompt("Vale-troca", "Código do vale-troca:");
+        if (string.IsNullOrWhiteSpace(code)) return;
+        var voucher = await runner.RunAsync<ReturnService, VoucherInfo?>(s => s.GetVoucherAsync(code));
+        if (voucher is null) { dialogs.ShowError("Vale-troca não encontrado. Confira o código."); return; }
+        if (voucher.ExpiresAt < DateTimeOffset.Now) { dialogs.ShowError($"Vale-troca vencido em {voucher.ExpiresAt.ToLocalTime():dd/MM/yyyy}."); return; }
+        var alreadyUsed = Payments.Where(p => p.Reference == voucher.Code).Sum(p => p.Amount);
+        var available = voucher.Balance - alreadyUsed;
+        if (available <= 0) { dialogs.ShowError($"O vale {voucher.Code} não tem saldo."); return; }
+
+        var amount = requested ?? Math.Min(Remaining, available);
+        if (amount > available) { dialogs.ShowError($"Saldo do vale: {available:C}."); return; }
+        if (amount > Remaining) { dialogs.ShowError("O vale-troca não gera troco: lance no máximo o valor que falta."); return; }
+
+        Payments.Add(new PaymentEntry(PaymentMethod.ExchangeVoucher, $"Vale-troca {voucher.Code}", amount, voucher.Code));
+        AmountInput = "";
+        if (Remaining == 0) await FinalizeAsync();
+        else StatusMessage = $"Vale {voucher.Code}: {amount:C} lançado. Restam {Remaining:C}.";
+    }
+
     [RelayCommand]
     private void RemovePayment(PaymentEntry? payment)
     {
@@ -305,6 +449,11 @@ public partial class CheckoutViewModel(
         if (!EnsureCashOpen()) return;
 
         // Sem pagamentos lançados: usa a forma selecionada com o valor digitado (ou o total).
+        if (Payments.Count == 0 && SelectedPayment?.Method == PaymentMethod.ExchangeVoucher)
+        {
+            await AddPaymentAsync();
+            return;
+        }
         if (Payments.Count == 0 && SelectedPayment is not null)
         {
             if (!TryReadAmount(out var amount)) return;
@@ -322,7 +471,7 @@ public partial class CheckoutViewModel(
             state.Terminal.Id,
             state.User!.UserId,
             Items.Select(i => new CheckoutItem(i.Product.ProductId, i.Quantity, i.Discount)).ToList(),
-            Payments.Select(p => new CheckoutPayment(p.Method, p.Amount)).ToList(),
+            Payments.Select(p => new CheckoutPayment(p.Method, p.Amount, p.Reference)).ToList(),
             DiscountTotal > 0 ? _discountAuthorizerId : null,
             CustomerDocument);
 
@@ -566,8 +715,20 @@ public partial class CheckoutViewModel(
         var s = result.Value!;
         var diff = s.Difference ?? 0;
         var situation = diff == 0 ? "Sem divergência." : diff < 0 ? $"FALTA de {-diff:C}." : $"SOBRA de {diff:C}.";
-        dialogs.ShowInfo($"Caixa fechado.\n\nEsperado: {s.ExpectedCash:C}\nContado: {s.CountedAmount:C}\n{situation}");
         await RefreshCashAsync();
+        if (dialogs.Confirm($"Caixa fechado.\n\nEsperado: {s.ExpectedCash:C}\nContado: {s.CountedAmount:C}\n{situation}\n\nImprimir o relatório de fechamento?"))
+        {
+            try
+            {
+                var report = await runner.RunAsync<ReportService, CashClosingReport?>(r => r.CashClosingAsync(s.SessionId));
+                if (report is not null) tickets.PrintCashClosing(report, await CompanyNameAsync());
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Falha ao imprimir fechamento de caixa");
+                dialogs.ShowError($"Não foi possível imprimir: {ex.Message}\nReimprima em Retaguarda › Relatórios › Caixas.");
+            }
+        }
     }
 
     // ---------- Retaguarda ----------
@@ -578,6 +739,7 @@ public partial class CheckoutViewModel(
         if (!CanOpenAdmin) { dialogs.ShowError("Seu usuário não tem acesso à retaguarda."); return; }
         var vm = adminFactory();
         vm.AttachNfceStore(nfceSettings);
+        vm.AttachTicketPrinter(tickets);
         var window = new AdminWindow(vm) { Owner = System.Windows.Application.Current.MainWindow };
         await vm.LoadAsync();
         window.ShowDialog();

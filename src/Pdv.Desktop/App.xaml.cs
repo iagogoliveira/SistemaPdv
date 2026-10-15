@@ -154,6 +154,8 @@ public partial class App : System.Windows.Application
         builder.Services.AddSingleton<AppState>();
         builder.Services.AddSingleton<ScopedRunner>();
         builder.Services.AddSingleton<ReceiptPrinter>();
+        builder.Services.AddSingleton<TicketPrinter>();
+        builder.Services.AddSingleton<Func<LoginViewModel>>(sp => sp.GetRequiredService<LoginViewModel>);
         // Desenvolvimento/treinamento: SEFAZ simulada (XML e assinatura reais, nada é enviado; só homologação).
         if (builder.Configuration.GetValue<bool>("Pdv:Fiscal:Simulator"))
             builder.Services.AddSingleton<INfceGateway>(_ => new SimulatedNfceGateway(new ZeusNfceGateway()));

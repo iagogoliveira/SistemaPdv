@@ -6,6 +6,7 @@ using Pdv.Domain.Catalog;
 using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Inventory;
+using Pdv.Domain.Purchases;
 using Pdv.Domain.Sales;
 using Pdv.Domain.Stores;
 
@@ -30,6 +31,10 @@ public sealed class PdvDbContext(DbContextOptions<PdvDbContext> options) : DbCon
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<Sale> Sales => Set<Sale>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<Purchase> Purchases => Set<Purchase>();
+    public DbSet<SupplierProduct> SupplierProducts => Set<SupplierProduct>();
+    public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
+    public DbSet<ExchangeVoucher> ExchangeVouchers => Set<ExchangeVoucher>();
 
     public const string SaleNumberSequence = "SaleNumbers";
 
@@ -40,6 +45,8 @@ public sealed class PdvDbContext(DbContextOptions<PdvDbContext> options) : DbCon
         // Valores monetários: decimal(18,2). Quantidades sobrescrevem para (18,3) nas configurações.
         configurationBuilder.Properties<decimal>().HavePrecision(18, 2);
         configurationBuilder.Properties<Enum>().HaveConversion<string>().HaveMaxLength(40);
+        // PostgreSQL (timestamptz) só aceita gravar em UTC: datas com fuso (ex.: XML de fornecedor, -03:00) são convertidas.
+        configurationBuilder.Properties<DateTimeOffset>().HaveConversion<UtcDateTimeOffsetConverter>();
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -53,3 +60,5 @@ public sealed class PdvDbContext(DbContextOptions<PdvDbContext> options) : DbCon
             entity.FindProperty(nameof(Domain.Common.Entity.Id))?.ValueGenerated = Microsoft.EntityFrameworkCore.Metadata.ValueGenerated.Never;
     }
 }
+
+internal sealed class UtcDateTimeOffsetConverter() : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset, DateTimeOffset>(v => v.ToUniversalTime(), v => v);

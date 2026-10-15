@@ -2,6 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Pdv.Application.Cash;
 using Pdv.Application.Catalog;
 using Pdv.Application.Fiscal;
+using Pdv.Application.Purchases;
+using Pdv.Application.Reports;
 using Pdv.Application.Identity;
 using Pdv.Application.Sales;
 
@@ -20,6 +22,10 @@ public static class DependencyInjection
         services.AddScoped<CompanySettingsService>();
         services.AddScoped<TaxProfileService>();
         services.AddScoped<NfceService>();
+        services.AddScoped<SupplierService>();
+        services.AddScoped<PurchaseService>();
+        services.AddScoped<ReturnService>();
+        services.AddScoped<ReportService>();
         services.AddScoped<ProductLookupService>();
         services.AddScoped<CashService>();
         services.AddScoped<CheckoutService>();

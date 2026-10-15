@@ -24,6 +24,10 @@
         <KeyBinding Key="F11" Command="{Binding SetCustomerDocumentCommand}" />
         <KeyBinding Key="F12" Command="{Binding CloseCashCommand}" />
         <KeyBinding Key="Escape" Command="{Binding ClearCartCommand}" />
+        <KeyBinding Key="Q" Modifiers="Control" Command="{Binding ChangeQuantityCommand}" />
+        <KeyBinding Key="P" Modifiers="Control" Command="{Binding PriceCheckCommand}" />
+        <KeyBinding Key="T" Modifiers="Control" Command="{Binding ReturnItemsCommand}" />
+        <KeyBinding Key="L" Modifiers="Control" Command="{Binding SwitchOperatorCommand}" />
     </Window.InputBindings>
 
     <DockPanel>
@@ -97,6 +101,12 @@
                                Content="Desconto" Command="{Binding DiscountItemCommand}" />
                 <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="F6" Icon="{StaticResource Icon.Trash}"
                                Content="Remover item" Command="{Binding RemoveSelectedItemCommand}" />
+                <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="Ctrl+Q" Icon="{StaticResource Icon.Edit}"
+                               Content="Quantidade" Command="{Binding ChangeQuantityCommand}" />
+                <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="Ctrl+P" Icon="{StaticResource Icon.Search}"
+                               Content="Preço" Command="{Binding PriceCheckCommand}" />
+                <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="Ctrl+T" Icon="{StaticResource Icon.Undo}"
+                               Content="Devolução" Command="{Binding ReturnItemsCommand}" />
                 <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="F7" Icon="{StaticResource Icon.XCircle}"
                                Content="Cancelar venda" Command="{Binding CancelSaleCommand}" />
                 <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="F8" Icon="{StaticResource Icon.Printer}"
@@ -105,6 +115,8 @@
                                Content="CPF na nota" Command="{Binding SetCustomerDocumentCommand}" />
                 <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="Esc" Icon="{StaticResource Icon.Undo}"
                                Content="Descartar" Command="{Binding ClearCartCommand}" />
+                <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="Ctrl+L" Icon="{StaticResource Icon.User}"
+                               Content="Operador" Command="{Binding SwitchOperatorCommand}" />
                 <ui:IconButton Style="{StaticResource FunctionKeyButton}" Hint="F12" Icon="{StaticResource Icon.Lock}"
                                Content="Fechar caixa" Command="{Binding CloseCashCommand}" />
             </WrapPanel>
@@ -324,6 +336,9 @@
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Method}" Value="CreditCard">
                                             <Setter TargetName="PayIcon" Property="Data" Value="{StaticResource Icon.CardContactless}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Method}" Value="ExchangeVoucher">
+                                            <Setter TargetName="PayIcon" Property="Data" Value="{StaticResource Icon.Receipt}" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>

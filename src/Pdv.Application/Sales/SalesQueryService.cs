@@ -39,6 +39,7 @@ public static class PaymentLabels
         PaymentMethod.Pix => "Pix",
         PaymentMethod.DebitCard => "Cartão de débito",
         PaymentMethod.CreditCard => "Cartão de crédito",
+        PaymentMethod.ExchangeVoucher => "Vale-troca",
         _ => "Outros",
     };
 }

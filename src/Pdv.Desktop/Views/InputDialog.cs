@@ -77,6 +77,23 @@ public sealed class ConfirmDialog : Window
     }
 }
 
+/// <summary>Mensagem de informação ou de alerta no visual do sistema (substitui a MessageBox do Windows).</summary>
+public sealed class MessageDialog : Window
+{
+    public MessageDialog(string message, bool isError)
+    {
+        DialogChrome.Apply(this, "Sistema PDV", 440);
+        FontSize = 15;
+        var panel = DialogChrome.Panel(this, isError ? "Atenção" : "Informação", isError ? "Icon.Alert" : "Icon.Info");
+        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 18) });
+        var ok = new Button { Content = "OK", IsDefault = true, IsCancel = true, MinWidth = 90, Style = (Style)FindResource("PrimaryButton") };
+        ok.Click += (_, _) => DialogResult = true;
+        panel.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { ok } });
+        Content = panel;
+        Loaded += (_, _) => ok.Focus();
+    }
+}
+
 /// <summary>Aparência comum dos diálogos: fundo, fonte e cabeçalho com ícone.</summary>
 internal static class DialogChrome
 {
