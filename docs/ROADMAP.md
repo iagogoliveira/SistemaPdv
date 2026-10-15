@@ -35,7 +35,8 @@ Itens conhecidos que ficam fora das etapas em andamento e serão retomados antes
 - Sessões de usuário emitidas pelo servidor (hoje ele confia no ID do usuário enviado por um caixa conectado) e HTTPS
   opcional entre caixa e servidor na rede da loja.
 - Teste em rede real com 3 computadores (o aceite foi feito com 3 caixas no mesmo computador).
-- Desempenho em telas pequenas (1366×768) e com catálogo grande (meta de busca < 300 ms).
+- ~~Desempenho em telas pequenas (1366×768) e com catálogo grande (meta de busca < 300 ms)~~ — feito em 15/10/2026
+  (ver histórico de mudanças).
 
 ## Etapa 1 — Migração para PostgreSQL  ✅ concluída
 

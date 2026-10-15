@@ -33,6 +33,10 @@ Todas as teclas também são botões na tela (mouse ou toque).
 
 Valor recebido vazio = valor que falta. O troco aparece em destaque e na mensagem de venda concluída.
 
+Em telas pequenas (ex.: 1366×768) o caixa entra em modo compacto: teclas de função mais baixas, total menor, sem o
+destaque do último item (ele continua na mensagem e na lista) e a coluna de pagamento rola se precisar — o botão
+"Finalizar venda" fica sempre visível.
+
 ### Pix e cartão integrados
 
 - **Pix** (quando ativado em Retaguarda › Pagamentos): ao lançar, abre o QR Code com o valor; o cliente paga no app do

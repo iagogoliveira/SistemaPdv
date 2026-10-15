@@ -64,3 +64,25 @@ public sealed class InvertBoolConverter : IValueConverter
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => value is not true;
 }
+
+/// <summary>
+/// Modo compacto para telas baixas (ex.: 1366×768): ligado pela janela e herdado pelos elementos,
+/// para estilos e gatilhos reduzirem espaçamentos e esconderem o que é secundário.
+/// </summary>
+public static class Layout
+{
+    public static readonly DependencyProperty CompactProperty = DependencyProperty.RegisterAttached(
+        "Compact", typeof(bool), typeof(Layout), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.Inherits));
+
+    public static bool GetCompact(DependencyObject element) => (bool)element.GetValue(CompactProperty);
+
+    public static void SetCompact(DependencyObject element, bool value) => element.SetValue(CompactProperty, value);
+
+    /// <summary>Colunas dos botões em grade (formas de pagamento): 3 em tela baixa e larga, para caber em menos linhas.</summary>
+    public static readonly DependencyProperty TileColumnsProperty = DependencyProperty.RegisterAttached(
+        "TileColumns", typeof(int), typeof(Layout), new FrameworkPropertyMetadata(2, FrameworkPropertyMetadataOptions.Inherits));
+
+    public static int GetTileColumns(DependencyObject element) => (int)element.GetValue(TileColumnsProperty);
+
+    public static void SetTileColumns(DependencyObject element, int value) => element.SetValue(TileColumnsProperty, value);
+}

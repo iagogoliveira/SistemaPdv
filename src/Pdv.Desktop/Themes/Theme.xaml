@@ -240,15 +240,23 @@
                                     Background="{StaticResource BrandSoftBrush}">
                                 <TextBlock Text="{TemplateBinding Hint}" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource BrandBrush}" />
                             </Border>
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,6,0,0">
-                                <ui:IconView Data="{TemplateBinding Icon}" Foreground="{TemplateBinding Foreground}" Width="22" Height="22" />
-                                <ContentPresenter HorizontalAlignment="Center" Margin="0,4,0,0" />
+                            <StackPanel x:Name="Body" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,6,0,0">
+                                <ui:IconView x:Name="KeyIcon" Data="{TemplateBinding Icon}" Foreground="{TemplateBinding Foreground}" Width="22" Height="22" />
+                                <ContentPresenter x:Name="KeyText" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,4,0,0" />
                             </StackPanel>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Root" Property="Opacity" Value="0.4" />
+                        </Trigger>
+                        <!-- Tela baixa: ícone ao lado do texto, metade da altura. -->
+                        <Trigger Property="ui:Layout.Compact" Value="True">
+                            <Setter TargetName="Body" Property="Orientation" Value="Horizontal" />
+                            <Setter TargetName="Body" Property="Margin" Value="22,0,0,0" />
+                            <Setter TargetName="KeyIcon" Property="Width" Value="17" />
+                            <Setter TargetName="KeyIcon" Property="Height" Value="17" />
+                            <Setter TargetName="KeyText" Property="Margin" Value="6,0,0,0" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -258,6 +266,13 @@
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{StaticResource BrandSoftBrush}" />
                 <Setter Property="BorderBrush" Value="{StaticResource BrandBorderBrush}" />
+            </Trigger>
+            <Trigger Property="ui:Layout.Compact" Value="True">
+                <Setter Property="MinHeight" Value="36" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="Padding" Value="6,3,10,3" />
+                <Setter Property="Margin" Value="2" />
+                <Setter Property="FontSize" Value="12.5" />
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -484,7 +499,7 @@
         <Setter Property="ItemsPanel">
             <Setter.Value>
                 <ItemsPanelTemplate>
-                    <UniformGrid Columns="2" />
+                    <UniformGrid Columns="{Binding (ui:Layout.TileColumns), RelativeSource={RelativeSource Self}}" />
                 </ItemsPanelTemplate>
             </Setter.Value>
         </Setter>
@@ -503,6 +518,9 @@
                                     <ContentPresenter />
                                 </Border>
                                 <ControlTemplate.Triggers>
+                                    <Trigger Property="ui:Layout.Compact" Value="True">
+                                        <Setter TargetName="Root" Property="Padding" Value="7,5" />
+                                    </Trigger>
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource BrandBorderBrush}" />
                                     </Trigger>

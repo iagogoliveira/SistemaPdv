@@ -1,5 +1,13 @@
 # Histórico de mudanças
 
+## Em desenvolvimento
+
+- Frente de caixa em telas pequenas (1366×768 e até 1024×640): modo compacto em telas baixas (teclas de função em
+  linha, total menor, destaque do último item oculto, formas de pagamento em 3 colunas), colunas mais estreitas em telas
+  estreitas e "Finalizar venda" sempre visível; botões de pagamento "Débito"/"Crédito".
+- Teste de carga com 50 mil produtos e 1 milhão de movimentos de estoque: leitura de código 1 ms, busca por nome
+  ≈ 17 ms, consulta de preço ≈ 18 ms, lista da retaguarda ≈ 7 ms, relatório de reposição ≈ 0,25 s (meta < 300 ms).
+
 ## 0.7.0 — Etapa 7: comercialização
 
 - Licença assinada pelo fornecedor (ECDSA P-256) presa ao computador principal: plano, limite de caixas, validade;

@@ -122,11 +122,11 @@
             </WrapPanel>
         </Border>
 
-        <Grid Margin="20,16,20,16">
+        <Grid x:Name="Body" Margin="20,16,20,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="20" />
-                <ColumnDefinition Width="400" />
+                <ColumnDefinition x:Name="PaymentColumn" Width="400" />
             </Grid.ColumnDefinitions>
 
             <!-- ===== Coluna da venda ===== -->
@@ -149,7 +149,7 @@
                 </Grid>
 
                 <!-- Mensagem de status -->
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,10,0,12">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,8,0,10">
                     <ui:IconView Data="{StaticResource Icon.Info}" Foreground="{StaticResource MutedBrush}" Width="16" Height="16" Margin="0,0,8,0" />
                     <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
@@ -159,6 +159,15 @@
                 <!-- Destaque do último item (visível para o cliente) -->
                 <Border DockPanel.Dock="Top" CornerRadius="12" Padding="18,14" Margin="0,0,0,14"
                         Background="{StaticResource BrandSoftBrush}" BorderBrush="{StaticResource BrandBorderBrush}" BorderThickness="1">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <Trigger Property="ui:Layout.Compact" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <Grid>
                         <!-- Com item -->
                         <Grid>
@@ -220,8 +229,8 @@
                     <Grid>
                         <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" Focusable="False" Margin="6,4">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="#" Binding="{Binding Number, StringFormat={}{0:00}}" Width="48" />
-                                <DataGridTemplateColumn Header="PRODUTO" Width="*">
+                                <DataGridTextColumn x:Name="ColNumber" Header="#" Binding="{Binding Number, StringFormat={}{0:00}}" Width="48" />
+                                <DataGridTemplateColumn Header="PRODUTO" Width="*" MinWidth="150">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel VerticalAlignment="Center">
@@ -231,12 +240,12 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="QTD" Width="80" ElementStyle="{StaticResource NumericCell}"
+                                <DataGridTextColumn x:Name="ColQuantity" Header="QTD" Width="80" ElementStyle="{StaticResource NumericCell}"
                                                     Binding="{Binding Quantity, StringFormat={}{0:0.###}}" />
-                                <DataGridTextColumn Header="UN" Binding="{Binding Product.Unit}" Width="50" />
-                                <DataGridTextColumn Header="PREÇO" Width="100" ElementStyle="{StaticResource NumericCell}"
+                                <DataGridTextColumn x:Name="ColUnit" Header="UN" Binding="{Binding Product.Unit}" Width="50" />
+                                <DataGridTextColumn x:Name="ColPrice" Header="PREÇO" Width="100" ElementStyle="{StaticResource NumericCell}"
                                                     Binding="{Binding Product.SalePrice, StringFormat=C}" />
-                                <DataGridTemplateColumn Header="DESCONTO" Width="100">
+                                <DataGridTemplateColumn x:Name="ColDiscount" Header="DESCONTO" Width="100">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock HorizontalAlignment="Right" Foreground="{StaticResource SuccessBrush}" FontWeight="SemiBold">
@@ -247,7 +256,7 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Header="TOTAL" Width="120">
+                                <DataGridTemplateColumn x:Name="ColTotal" Header="TOTAL" Width="120">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock HorizontalAlignment="Right" FontWeight="Bold" Margin="0,0,6,0"
@@ -282,23 +291,45 @@
 
             <!-- ===== Coluna do pagamento ===== -->
             <DockPanel Grid.Column="2">
+            <!-- Finalizar: sempre visível, fora da rolagem -->
+            <ui:IconButton DockPanel.Dock="Bottom" Style="{StaticResource SuccessIconButton}" Icon="{StaticResource Icon.Check}"
+                           Hint="F10" Content="Finalizar venda" Command="{Binding FinalizeCommand}"
+                           FontSize="19" MinHeight="58" Margin="0,12,0,0" />
+            <ScrollViewer x:Name="PaymentScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <DockPanel MinHeight="{Binding ViewportHeight, ElementName=PaymentScroll}">
                 <!-- Total -->
-                <Border DockPanel.Dock="Top" CornerRadius="14" Padding="22,18" Background="{StaticResource InkBrush}" Effect="{StaticResource CardShadow}">
+                <Border DockPanel.Dock="Top" CornerRadius="14" Background="{StaticResource InkBrush}" Effect="{StaticResource CardShadow}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Padding" Value="22,18" />
+                            <Style.Triggers>
+                                <Trigger Property="ui:Layout.Compact" Value="True">
+                                    <Setter Property="Padding" Value="18,10" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <StackPanel>
                         <TextBlock Text="TOTAL A PAGAR" Foreground="#94A3B8" FontSize="12" FontWeight="Bold" />
-                        <TextBlock Text="{Binding Total, StringFormat=C}" Foreground="White" FontSize="52" FontWeight="Bold"
-                                   FontFamily="{StaticResource DisplayFont}" Margin="0,2,0,4" />
+                        <TextBlock Text="{Binding Total, StringFormat=C}" Foreground="White" FontWeight="Bold"
+                                   FontFamily="{StaticResource DisplayFont}" Margin="0,2,0,4">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontSize" Value="52" />
+                                    <Style.Triggers>
+                                        <Trigger Property="ui:Layout.Compact" Value="True">
+                                            <Setter Property="FontSize" Value="38" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <TextBlock Foreground="#CBD5E1" FontSize="13" Language="pt-BR">
                             <Run Text="{Binding ItemCount, Mode=OneWay}" /><Run Text=" item(ns)" />
                             <Run Text="   ·   descontos " /><Run Text="{Binding DiscountTotal, Mode=OneWay, StringFormat=C}" Foreground="#86EFAC" />
                         </TextBlock>
                     </StackPanel>
                 </Border>
-
-                <!-- Finalizar -->
-                <ui:IconButton DockPanel.Dock="Bottom" Style="{StaticResource SuccessIconButton}" Icon="{StaticResource Icon.Check}"
-                               Hint="F10" Content="Finalizar venda" Command="{Binding FinalizeCommand}"
-                               FontSize="19" MinHeight="64" Margin="0,14,0,0" />
 
                 <!-- Pagamento -->
                 <Border Style="{StaticResource Card}" Margin="0,14,0,0">
@@ -323,7 +354,18 @@
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal">
                                         <ui:IconView x:Name="PayIcon" Data="{StaticResource Icon.Cash}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
-                                                     Width="22" Height="22" Margin="0,0,10,0" />
+                                                     Width="22" Height="22">
+                                            <ui:IconView.Style>
+                                                <Style TargetType="ui:IconView">
+                                                    <Setter Property="Margin" Value="0,0,10,0" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="ui:Layout.Compact" Value="True">
+                                                            <Setter Property="Margin" Value="0,0,6,0" />
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ui:IconView.Style>
+                                        </ui:IconView>
                                         <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center"
                                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
                                     </StackPanel>
@@ -414,6 +456,8 @@
                         </ScrollViewer>
                     </DockPanel>
                 </Border>
+            </DockPanel>
+            </ScrollViewer>
             </DockPanel>
         </Grid>
     </DockPanel>

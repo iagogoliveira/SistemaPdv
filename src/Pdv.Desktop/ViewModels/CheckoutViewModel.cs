@@ -87,8 +87,8 @@ public partial class CheckoutViewModel(
     [
         new(PaymentMethod.Cash, PaymentLabels.For(PaymentMethod.Cash)),
         new(PaymentMethod.Pix, PaymentLabels.For(PaymentMethod.Pix)),
-        new(PaymentMethod.DebitCard, PaymentLabels.For(PaymentMethod.DebitCard)),
-        new(PaymentMethod.CreditCard, PaymentLabels.For(PaymentMethod.CreditCard)),
+        new(PaymentMethod.DebitCard, "Débito"),
+        new(PaymentMethod.CreditCard, "Crédito"),
         new(PaymentMethod.ExchangeVoucher, PaymentLabels.For(PaymentMethod.ExchangeVoucher)),
     ];
 
@@ -521,7 +521,7 @@ public partial class CheckoutViewModel(
                 dialogs.ShowError("Cartão e Pix não podem passar do valor restante (não há troco).");
                 return;
             }
-            Payments.Add(new PaymentEntry(SelectedPayment.Method, SelectedPayment.Label, amount));
+            Payments.Add(new PaymentEntry(SelectedPayment.Method, PaymentLabels.For(SelectedPayment.Method), amount));
         }
 
         AmountInput = "";
@@ -545,7 +545,7 @@ public partial class CheckoutViewModel(
         { Owner = System.Windows.Application.Current.MainWindow };
         if (dialog.ShowDialog() != true || dialog.Outcome?.Approval is not { } approval) return null;
         Log.Information("Cartão aprovado no TEF: {Amount} NSU {Nsu} {Brand}", approval.Amount, approval.Nsu, approval.CardBrandName);
-        return new PaymentEntry(option.Method, $"{option.Label} {approval.CardBrandName} NSU {approval.Nsu}", amount, Tef: approval);
+        return new PaymentEntry(option.Method, $"{PaymentLabels.For(option.Method)} {approval.CardBrandName} NSU {approval.Nsu}", amount, Tef: approval);
     }
 
     /// <summary>Confirma (venda gravada) ou desfaz (venda não concluída) os cartões aprovados no TEF.</summary>
@@ -610,7 +610,7 @@ public partial class CheckoutViewModel(
         if (Payments.Count == 0 && SelectedPayment is not null)
         {
             if (!TryReadAmount(out var amount)) return;
-            if (amount > 0) Payments.Add(new PaymentEntry(SelectedPayment.Method, SelectedPayment.Label, amount));
+            if (amount > 0) Payments.Add(new PaymentEntry(SelectedPayment.Method, PaymentLabels.For(SelectedPayment.Method), amount));
             AmountInput = "";
         }
         if (Remaining > 0)
