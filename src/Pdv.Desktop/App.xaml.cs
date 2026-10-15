@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Windows;
@@ -133,8 +134,9 @@ public partial class App : System.Windows.Application
                 var health = await client.GetHealthAsync();
                 if (health.Version != RemoteApi.Version)
                 {
+                    if (key is not null && await TryUpdateAsync(client, health)) return null; // instalador iniciado: este processo encerra
                     ShowMessage($"O servidor da loja ({health.MachineName}) está na versão {health.Version} e este caixa na {RemoteApi.Version}.\n\n" +
-                        "Instale neste computador a mesma versão do servidor.");
+                        (IsNewer(health.Version) ? "Atualize este caixa com o instalador da versão do servidor." : "Atualize o servidor da loja para a versão deste caixa."));
                     return null;
                 }
 
@@ -170,6 +172,51 @@ public partial class App : System.Windows.Application
                 ShowMessage(ex.Message);
                 return null;
             }
+        }
+    }
+
+    private static bool IsNewer(string serverVersion) =>
+        Version.TryParse(serverVersion, out var server) && Version.TryParse(RemoteApi.Version, out var mine) && server > mine;
+
+    /// <summary>
+    /// Servidor mais novo que o caixa: baixa do servidor o instalador da versão dele, confere o SHA-256 e instala em modo
+    /// silencioso (o Windows pede a senha de administrador). O instalador reabre o sistema ao terminar.
+    /// </summary>
+    private static async Task<bool> TryUpdateAsync(PdvServerClient client, ServerHealth health)
+    {
+        if (!IsNewer(health.Version)) return false;
+        UpdateInfo info;
+        try
+        {
+            info = await client.GetUpdateInfoAsync();
+        }
+        catch (ServerException ex)
+        {
+            Log.Warning("Atualização indisponível no servidor: {Message}", ex.Message);
+            return false;
+        }
+        if (new ConfirmDialog($"O servidor da loja foi atualizado para a versão {info.Version} (este caixa está na {RemoteApi.Version}).\n\n" +
+            $"Atualizar este caixa agora? ({info.SizeBytes / 1024d / 1024d:N0} MB, leva alguns minutos)").ShowDialog() != true)
+            return false;
+
+        var progress = new MessageDialog("Baixando a atualização do servidor da loja...", isError: false) { Topmost = true };
+        progress.Show();
+        try
+        {
+            var path = await client.DownloadUpdateAsync(info, Path.Combine(LocalSettings.Folder, "atualizacao"));
+            Log.Information("Atualização {Version} baixada ({File}); iniciando instalação", info.Version, path);
+            Process.Start(new ProcessStartInfo(path, "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS") { UseShellExecute = true });
+            return true;
+        }
+        catch (Exception ex) when (ex is ServerException or IOException or System.ComponentModel.Win32Exception)
+        {
+            Log.Error(ex, "Falha na atualização automática");
+            ShowMessage($"Não foi possível atualizar automaticamente: {ex.Message}");
+            return false;
+        }
+        finally
+        {
+            progress.Close();
         }
     }
 
@@ -243,6 +290,7 @@ public partial class App : System.Windows.Application
         builder.Services.AddSingleton<AppState>();
         builder.Services.AddSingleton<ReceiptPrinter>();
         builder.Services.AddSingleton<TicketPrinter>();
+        builder.Services.AddSingleton<RawPrinter>();
         builder.Services.AddSingleton<Func<LoginViewModel>>(sp => sp.GetRequiredService<LoginViewModel>);
         builder.Services.AddSingleton<IDialogService, DialogService>();
         builder.Services.AddSingleton<SupervisorAuthorizer>();

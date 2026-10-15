@@ -14,4 +14,7 @@
     <Project Path="tests/Pdv.Infrastructure.Tests/Pdv.Infrastructure.Tests.csproj" />
     <Project Path="tests/Pdv.Server.Tests/Pdv.Server.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Pdv.LicenseTool/Pdv.LicenseTool.csproj" />
+  </Folder>
 </Solution>

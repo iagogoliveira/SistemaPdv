@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Pdv.Application;
@@ -360,8 +362,50 @@ public sealed class PixWatchWorker(IServiceScopeFactory scopes, ILogger<PixWatch
     }
 }
 
-public sealed class ServerAdmin(ServerSettings settings, PermissionChecker permissions) : IServerAdmin
+public sealed class ServerAdmin(ServerSettings settings, PermissionChecker permissions, BackupRunner backups,
+    Application.Licensing.LicenseService license, PdvDbContext db, UpdateCatalog updates) : IServerAdmin
 {
+    public async Task<byte[]> ExportSupportPackageAsync(Guid actorId, CancellationToken ct = default)
+    {
+        if (!await permissions.HasAsync(actorId, Permissions.ManageSystem, ct))
+            throw new DomainException("Seu usuário não tem permissão para administrar o sistema.");
+
+        var status = await license.GetStatusAsync(actorId, ct);
+        var terminals = await db.Terminals.AsNoTracking().OrderBy(t => t.Code)
+            .Select(t => new { t.Code, t.MachineName, t.IsActive, Paired = t.AccessKeyHash != null, t.LastSeenAt, t.AppVersion }).ToListAsync(ct);
+        var migrations = await db.Database.GetAppliedMigrationsAsync(ct);
+        var (lastBackup, backupError) = backups.LastRun();
+        var summary = new System.Text.StringBuilder()
+            .AppendLine(CultureInfo.InvariantCulture, $"Sistema PDV - pacote de suporte gerado em {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}")
+            .AppendLine(CultureInfo.InvariantCulture, $"Servidor: {Environment.MachineName} | versão {Application.Remote.RemoteApi.Version} | {Environment.OSVersion} | .NET {Environment.Version}")
+            .AppendLine(CultureInfo.InvariantCulture, $"No ar desde: {ServerApp.StartedAt:yyyy-MM-dd HH:mm:ss} UTC | pasta de dados: {settings.Folder}")
+            .AppendLine(CultureInfo.InvariantCulture, $"Licença: {status.State} | {status.Customer} | {status.Plan} | {status.UsedTerminals}/{status.MaxTerminals} caixa(s) | validade {status.ExpiresAt} | máquina {status.MachineCode}")
+            .AppendLine(CultureInfo.InvariantCulture, $"Banco: {migrations.Count()} migração(ões), última {migrations.LastOrDefault()}")
+            .AppendLine(CultureInfo.InvariantCulture, $"Backup: último {lastBackup:yyyy-MM-dd HH:mm} | erro: {backupError ?? "nenhum"} | {backups.List().Count} arquivo(s)")
+            .AppendLine(CultureInfo.InvariantCulture, $"Instalador para atualizar caixas: {updates.Find()?.FileName ?? "não encontrado"}")
+            .AppendLine("Caixas:");
+        foreach (var t in terminals)
+            summary.AppendLine(CultureInfo.InvariantCulture, $"  {t.Code} {t.MachineName} ativo={t.IsActive} conectado={t.Paired} último contato={t.LastSeenAt:yyyy-MM-dd HH:mm} versão={t.AppVersion}");
+
+        using var buffer = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(buffer, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var entry = zip.CreateEntry("resumo-servidor.txt");
+            await using (var writer = new StreamWriter(await entry.OpenAsync(ct)))
+                await writer.WriteAsync(summary.ToString());
+            var logs = Path.Combine(settings.Folder, "logs");
+            if (Directory.Exists(logs))
+                foreach (var file in new DirectoryInfo(logs).GetFiles("*.log").Where(f => f.LastWriteTimeUtc > DateTime.UtcNow.AddDays(-7)))
+                {
+                    // O log em uso está aberto pelo Serilog: copia com compartilhamento de escrita.
+                    await using var source = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    await using var target = await zip.CreateEntry($"logs-servidor/{file.Name}").OpenAsync(ct);
+                    await source.CopyToAsync(target, ct);
+                }
+        }
+        return buffer.ToArray();
+    }
+
     public async Task<ServerInfo> GetInfoAsync(Guid actorId, CancellationToken ct = default)
     {
         var allowed = await permissions.HasAsync(actorId, Permissions.ManageSystem, ct);

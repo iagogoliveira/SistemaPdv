@@ -3,6 +3,7 @@ using System.Net;
 using System.Text.Json;
 using Pdv.Application;
 using Pdv.Application.Fiscal;
+using Pdv.Application.Licensing;
 using Pdv.Application.Maintenance;
 using Pdv.Application.Payments;
 using Pdv.Application.Remote;
@@ -58,8 +59,15 @@ public static class ServerApp
             builder.Services.AddSingleton<INfceGateway, ZeusNfceGateway>();
         builder.Services.AddSingleton<INfceSettingsStore>(_ => new FileNfceSettingsStore(folder, builder.Configuration["Pdv:Fiscal:SettingsFile"]));
         builder.Services.AddSingleton<IPixSettingsStore>(_ => new FilePixSettingsStore(folder));
+        // Licença: chave pública do fornecedor (outra em testes/treinamento) e código desta máquina.
+        var publicKeyFile = builder.Configuration["Pdv:License:PublicKeyFile"];
+        builder.Services.AddSingleton(new LicensePublicKey(string.IsNullOrWhiteSpace(publicKeyFile) ? LicenseKeys.Production : File.ReadAllText(publicKeyFile)));
+        builder.Services.AddSingleton<ILicenseStore>(_ => new FileLicenseStore(folder, builder.Configuration["Pdv:License:MachineCode"]));
+        builder.Services.AddScoped<LicenseService>();
+        builder.Services.AddScoped<ILicenseGuard>(sp => sp.GetRequiredService<LicenseService>());
 
         builder.Services.AddSingleton<RpcDispatcher>();
+        builder.Services.AddSingleton<UpdateCatalog>();
         builder.Services.AddSingleton<TerminalGate>();
         builder.Services.AddSingleton<PairingThrottle>();
         builder.Services.AddSingleton<MaintenanceGate>();
@@ -122,6 +130,22 @@ public static class ServerApp
             {
                 return Error(StatusCodes.Status422UnprocessableEntity, RemoteError.Domain, ex.Message);
             }
+        });
+
+        // Atualização: só caixas conectados, e sem exigir a mesma versão (é justamente para quem está desatualizado).
+        api.MapGet("/update", async (HttpContext http, TerminalGate terminals, UpdateCatalog updates) =>
+        {
+            if (await AuthenticateAsync(http, terminals) is null) return NotPaired();
+            return updates.Find() is { } info ? Results.Json(info, RemoteApi.Json)
+                : Error(StatusCodes.Status404NotFound, RemoteError.Server, "O servidor não tem o instalador desta versão para atualizar os caixas.");
+        });
+
+        api.MapGet("/update/package", async (HttpContext http, TerminalGate terminals, UpdateCatalog updates) =>
+        {
+            if (await AuthenticateAsync(http, terminals) is null) return NotPaired();
+            return updates.Find() is { } info && updates.PackagePath(info) is { } path
+                ? Results.File(path, "application/octet-stream", info.FileName)
+                : Error(StatusCodes.Status404NotFound, RemoteError.Server, "Instalador não encontrado no servidor.");
         });
 
         api.MapGet("/terminals/me", async (HttpContext http, TerminalGate terminals) =>

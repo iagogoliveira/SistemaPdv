@@ -34,6 +34,9 @@ public interface IServerAdmin
     Task<ServerInfo> GetInfoAsync(Guid actorId, CancellationToken ct = default);
 
     Task<Result<string>> RegeneratePairingCodeAsync(Guid actorId, CancellationToken ct = default);
+
+    /// <summary>Pacote .zip para o suporte: logs do servidor (7 dias) e resumo técnico, sem senhas, chaves ou certificados.</summary>
+    Task<byte[]> ExportSupportPackageAsync(Guid actorId, CancellationToken ct = default);
 }
 
 /// <summary>Produtos de demonstração; o servidor só os cria quando configurado para isso (desenvolvimento/treinamento).</summary>

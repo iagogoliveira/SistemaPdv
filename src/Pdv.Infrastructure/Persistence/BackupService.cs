@@ -60,6 +60,10 @@ public sealed class LocalPgTools : IPgTools
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
             .Select(dir => Path.Combine(dir, exe));
 
+        // PostgreSQL embutido pelo instalador do PDV ({app}\PostgreSQL\bin, ao lado da pasta do servidor).
+        var bundled = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "PostgreSQL", "bin", exe));
+        candidates = candidates.Prepend(bundled);
+
         var installRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PostgreSQL");
         if (Directory.Exists(installRoot))
         {

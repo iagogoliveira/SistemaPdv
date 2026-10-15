@@ -29,8 +29,9 @@ Itens conhecidos que ficam fora das etapas em andamento e serão retomados antes
 - NF-e de entrada para devoluções de venda com NFC-e (a devolução da Etapa 4 é só operacional: estoque e caixa).
 
 **Infraestrutura (Etapas 6–7)**
-- Instalador compilado e testado em Windows limpo (o Inno Setup não está nesta máquina), com PostgreSQL embutido;
-  atualização automática de caixas e servidor juntos.
+- Instalador compilado e testado em Windows limpo (o Inno Setup não está nesta máquina); assinatura Authenticode do
+  instalador e dos executáveis; atualização do caixa sem exigir administrador (serviço de atualização).
+- Licenciamento online opcional (ativação/transferência pelo portal do fornecedor) — hoje é por arquivo assinado.
 - Sessões de usuário emitidas pelo servidor (hoje ele confia no ID do usuário enviado por um caixa conectado) e HTTPS
   opcional entre caixa e servidor na rede da loja.
 - Teste em rede real com 3 computadores (o aceite foi feito com 3 caixas no mesmo computador).
@@ -140,12 +141,25 @@ Falta (depende da loja): credenciais do PSP da loja para homologar o Pix real; e
 para escrever o adaptador real (SiTef/CliSiTef ou PayGo/PGWebLib) e homologá-lo; validar na SEFAZ o grupo `card` do Pix
 dinâmico (CNPJ do PSP).
 
-## Etapa 7 — Comercialização
+## Etapa 7 — Comercialização  🟡 implementada; falta testar em Windows limpo e com hardware real
 
 - Licenciamento (ativação assinada, limites por plano, tolerância offline, transferência de máquina).
 - Instalador testado em Windows limpo, incluindo instalação silenciosa do PostgreSQL.
 - Atualização automática, manual de instalação/recuperação, exportação de logs para suporte.
 - Testes com hardware real (leitor, impressora térmica, gaveta via ESC/POS).
+
+Feito: **licença** assinada (ECDSA) pelo fornecedor, presa ao computador principal, com plano, limite de caixas,
+validade, demonstração de 30 dias (2 caixas), tolerância de 15 dias e modo restrito (vendas bloqueadas, dados
+acessíveis); ferramenta `pdv-licenca` (chaves, emissão, conferência) e tela na retaguarda (situação, código da máquina,
+instalação). **Atualização automática** dos caixas a partir do servidor (instalador guardado no servidor, SHA-256,
+instalação silenciosa e reabertura). **PostgreSQL embutido** opcional no instalador com configuração silenciosa
+(cluster UTF-8 só local, serviço, usuário e senhas aleatórias) — script testado; **pacote de logs para suporte**;
+**ESC/POS** para abrir a gaveta e cortar o papel; manuais de licenciamento e de recuperação. Percorrido pela interface:
+demonstração, bloqueio ao vencer, licença emitida pela ferramenta e venda liberada.
+
+Falta: compilar o instalador e testá-lo em Windows limpo (Inno Setup não está nesta máquina), incluindo o PostgreSQL
+embutido com os binários da EDB e a atualização silenciosa (exige senha de administrador no caixa); testar leitor,
+impressora térmica, guilhotina e gaveta reais; assinatura digital (Authenticode) do instalador.
 
 ## Etapa 8 — Pilotos
 

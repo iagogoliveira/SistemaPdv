@@ -223,6 +223,16 @@ internal sealed class SaleReturnItemConfiguration : IEntityTypeConfiguration<Sal
     }
 }
 
+internal sealed class AppSettingConfiguration : IEntityTypeConfiguration<Domain.Common.AppSetting>
+{
+    public void Configure(EntityTypeBuilder<Domain.Common.AppSetting> b)
+    {
+        b.HasKey(x => x.Key);
+        b.Property(x => x.Key).HasMaxLength(60);
+        b.Property(x => x.Value).HasMaxLength(500);
+    }
+}
+
 internal sealed class PixChargeConfiguration : IEntityTypeConfiguration<PixCharge>
 {
     public void Configure(EntityTypeBuilder<PixCharge> b)

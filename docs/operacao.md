@@ -82,6 +82,11 @@ Vendas por dia; vendas por forma de pagamento (dinheiro líquido do troco); prod
 (aberturas e fechamentos, com reimpressão do fechamento); divergências de caixa por operador; estoque abaixo do mínimo.
 Todos com período (exceto reposição), exportação **CSV** (abre no Excel em português) e impressão A4.
 
+## Licença
+
+Ao abrir o caixa, o sistema avisa se a licença está perto de vencer, vencida (tolerância) ou se as vendas estão
+bloqueadas. Veja e instale a licença em Retaguarda › Sistema (detalhes em [Licenciamento](licenciamento.md)).
+
 ## Backup
 
 Retaguarda › Sistema:

@@ -26,7 +26,7 @@ Gerado por `installer/build.ps1` (ver [Desenvolvimento](desenvolvimento.md#insta
 
 | Tipo | Instala | Pergunta |
 |---|---|---|
-| Computador principal | Servidor + caixa | Usuário e senha do PostgreSQL; endereço do servidor (`localhost`) |
+| Computador principal | Servidor + caixa (+ PostgreSQL embutido, se o instalador foi gerado com ele) | Usuário e senha do PostgreSQL (não pergunta com o banco embutido); endereço do servidor (`localhost`) |
 | Somente caixa | Caixa | Nome ou IP do computador principal |
 
 No computador principal o instalador também:
@@ -34,7 +34,12 @@ No computador principal o instalador também:
 - cria o serviço `SistemaPDV.Servidor` (início automático atrasado; reinicia sozinho após falha em 5 s, 5 s e 30 s);
 - libera a porta TCP **5080** no firewall do Windows (perfis privado e domínio);
 - restringe `%ProgramData%\SistemaPDV\Servidor` a Administradores e SYSTEM;
-- grava `server.json` com a conexão — a senha é **cifrada pelo servidor ao iniciar** (DPAPI).
+- grava `server.json` com a conexão — a senha é **cifrada pelo servidor ao iniciar** (DPAPI);
+- guarda uma cópia do próprio instalador em `Servidor\atualizacao`, para os caixas se atualizarem sozinhos;
+- com o **PostgreSQL embutido** (`build.ps1 -PostgresZip`): copia os binários para `{app}\PostgreSQL`, cria o cluster
+  em `%ProgramData%\SistemaPDV\PostgreSQL` (UTF-8, só localhost, porta 5433), registra o serviço
+  `SistemaPDV-PostgreSQL` e cria o usuário `pdv` e o banco com senhas aleatórias (`installer/setup-postgres.ps1`).
+  Numa atualização o cluster existente não é alterado.
 
 Na primeira abertura de cada caixa, informe o código de conexão (Retaguarda › Sistema no principal, ou
 `"C:\Program Files\SistemaPDV\Servidor\SistemaPDV.Servidor.exe" --codigo` executado como administrador).
@@ -50,7 +55,9 @@ Na primeira abertura de cada caixa, informe o código de conexão (Retaguarda �
 
 ## Atualização
 
-Atualize **o computador principal e todos os caixas para a mesma versão** (caixa com versão diferente não opera). O
+Atualize **o computador principal**; os **caixas se atualizam sozinhos**: ao abrir, o caixa percebe a versão nova do
+servidor, oferece "Atualizar agora", baixa o instalador do servidor (conferindo o SHA-256), instala em modo silencioso
+(o Windows pede a senha de administrador) e reabre. Caixa com versão diferente não opera. O
 instalador para o serviço antes de substituir os arquivos, mantém configurações, dados e backups, e o servidor aplica
 as migrações do banco ao iniciar. Na atualização a partir da 0.1 (caixas acessando o banco direto), o `connection.json`
 antigo — que tinha a senha do banco — é substituído pelo novo formato.
@@ -62,7 +69,7 @@ antigo — que tinha a senha do banco — é substituído pelo novo formato.
 | Arquivo | Conteúdo |
 |---|---|
 | `connection.json` | Endereço do servidor e chave do caixa (cifrada) |
-| `appsettings.json` | Ajustes opcionais: impressora (`Pdv:Receipt:Printer`) e TEF (`Pdv:Tef:Provider`) |
+| `appsettings.json` | Ajustes opcionais: impressora e ESC/POS (`Pdv:Receipt`), TEF (`Pdv:Tef:Provider`) |
 | `tef-pendentes.json` | Cartões aprovados aguardando confirmação (temporário) |
 | `venda-em-andamento.json` | Diário da venda em conclusão (temporário) |
 | `logs\pdv-AAAAMMDD.log` | Logs técnicos (30 dias) |
@@ -77,11 +84,25 @@ antigo — que tinha a senha do banco — é substituído pelo novo formato.
 | `nfce.json`, `certificado-a1.pfx` | Configuração da NFC-e (senha e CSC cifrados) e certificado A1 |
 | `pix.json`, `certificado-psp.pfx` | Pix integrado (client secret e senha do certificado cifrados) e certificado do PSP |
 | `backup.json` | Configuração e situação do backup |
+| `licenca.pdvlic` | Licença instalada |
+| `atualizacao\SistemaPDV-Setup-x.y.z.exe` | Instalador oferecido aos caixas desatualizados |
 | `backups\pdv-AAAAMMDD-HHMMSS.backup` | Backups (formato custom do `pg_dump`) |
 | `logs\servidor-AAAAMMDD.log` | Logs do servidor (60 dias) |
 
 Os segredos cifrados com DPAPI só podem ser lidos neste computador: ao trocar o computador principal, restaure um
 backup do banco e informe de novo a senha do banco, o certificado/CSC e reconecte os caixas.
+
+## Impressora térmica (ESC/POS)
+
+Em `%ProgramData%\SistemaPDV\appsettings.json` do caixa:
+
+```json
+{ "Pdv": { "Receipt": { "Printer": "ELGIN i9", "PaperWidthMm": 80, "OpenDrawer": true, "DrawerPin": 0, "CutPaper": false } } }
+```
+
+`OpenDrawer` abre a gaveta ligada à impressora em vendas com dinheiro, suprimento e sangria; `DrawerPin` 0 = pino 2,
+1 = pino 5; `CutPaper` envia o corte (use só se o driver não cortar sozinho). Os comandos vão em modo RAW pelo spooler
+do Windows.
 
 ## Suporte rápido
 

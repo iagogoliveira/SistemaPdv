@@ -15,3 +15,20 @@ public static class Money
 
     public static decimal RoundQuantity(decimal value) => Math.Round(value, 3, MidpointRounding.AwayFromZero);
 }
+
+/// <summary>Configuração simples do sistema guardada no banco (chave/valor), ex.: início da demonstração.</summary>
+public class AppSetting
+{
+    private AppSetting() { Key = Value = null!; }
+
+    public AppSetting(string key, string value)
+    {
+        Key = key;
+        Value = value;
+    }
+
+    public string Key { get; private set; }
+    public string Value { get; private set; }
+
+    public void Set(string value) => Value = value;
+}

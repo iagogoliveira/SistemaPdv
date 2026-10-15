@@ -845,6 +845,33 @@
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="{Binding ServerSummary}" Foreground="{StaticResource MutedBrush}" Margin="4,0,0,12"
                                TextTrimming="CharacterEllipsis" />
+                    <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,16" Padding="18,12">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:IconButton Icon="{StaticResource Icon.Clipboard}" Content="Copiar código da máquina" Command="{Binding CopyMachineCodeCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Shield}" Content="Instalar licença"
+                                               Command="{Binding InstallLicenseCommand}" Margin="0" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="{Binding LicenseSummary}" FontSize="16" FontWeight="SemiBold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding LicenseHasProblem}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{Binding LicenseDetail}" TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                                <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,4,0,0">
+                                    <Run Text="Código desta máquina: " /><Run Text="{Binding MachineCode}" FontWeight="SemiBold" />
+                                </TextBlock>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -870,7 +897,9 @@
                                 </Border>
                                 <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
                                     <ui:IconButton Style="{StaticResource DangerIconButton}" Icon="{StaticResource Icon.Power}" Content="Desconectar caixa"
-                                                   Command="{Binding RevokeTerminalCommand}" Margin="0" />
+                                                   Command="{Binding RevokeTerminalCommand}" Margin="0,0,8,0" />
+                                    <ui:IconButton Icon="{StaticResource Icon.Help}" Content="Exportar logs para suporte"
+                                                   Command="{Binding ExportSupportPackageCommand}" Margin="0" />
                                 </WrapPanel>
                                 <DataGrid ItemsSource="{Binding Terminals}" SelectedItem="{Binding SelectedTerminal}">
                                     <DataGrid.Columns>

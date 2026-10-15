@@ -10,7 +10,7 @@ namespace Pdv.Application.Cash;
 public sealed record CashSessionSummary(Guid SessionId, DateTimeOffset OpenedAt, decimal ExpectedCash, CashSessionStatus Status,
     decimal? CountedAmount, decimal? Difference);
 
-public sealed class CashService(IPdvDbContext db, PermissionChecker permissions, TimeProvider clock)
+public sealed class CashService(IPdvDbContext db, PermissionChecker permissions, Licensing.ILicenseGuard license, TimeProvider clock)
 {
     public async Task<CashSessionSummary?> GetOpenSessionAsync(Guid terminalId, CancellationToken ct = default)
     {
@@ -22,6 +22,8 @@ public sealed class CashService(IPdvDbContext db, PermissionChecker permissions,
     {
         if (await db.CashSessions.AnyAsync(s => s.TerminalId == terminalId && s.Status == CashSessionStatus.Open, ct))
             return Result<CashSessionSummary>.Fail("Já existe um caixa aberto neste terminal.");
+        try { await license.EnsureCanSellAsync(ct); }
+        catch (DomainException ex) { return Result<CashSessionSummary>.Fail(ex.Message); }
 
         return await RunAsync(() =>
         {

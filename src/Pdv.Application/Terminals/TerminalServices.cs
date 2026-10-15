@@ -32,11 +32,14 @@ public static class TerminalAccessKey
 }
 
 /// <summary>Uso exclusivo do servidor: conecta caixas e valida a chave em cada chamada.</summary>
-public sealed class TerminalRegistry(IPdvDbContext db, TimeProvider clock)
+public sealed class TerminalRegistry(IPdvDbContext db, Licensing.ILicenseGuard license, TimeProvider clock)
 {
     /// <summary>Registra o computador como caixa (ou reaproveita o registro existente) e troca a chave de acesso.</summary>
     public async Task<(TerminalInfo Terminal, string AccessKey)> PairAsync(string machineName, CancellationToken ct = default)
     {
+        // Reconectar um caixa já conectado não conta de novo no limite da licença.
+        var alreadyPaired = await db.Terminals.AnyAsync(t => t.MachineName == machineName.Trim() && t.IsActive && t.AccessKeyHash != null, ct);
+        if (!alreadyPaired) await license.EnsureCanAddTerminalAsync(ct);
         var terminal = await FindOrCreateAsync(machineName, ct);
         var key = TerminalAccessKey.New();
         var now = clock.GetUtcNow();

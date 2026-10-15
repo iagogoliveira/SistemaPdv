@@ -19,6 +19,8 @@
 | Chave do caixa | `connection.json` (caixa) e SHA-256 no banco | DPAPI no caixa; o banco não guarda a chave |
 | Credenciais do PSP (Pix) | `pix.json` e `certificado-psp.pfx` (servidor) | Client secret e senha do certificado com DPAPI; nunca enviados ao caixa |
 | Senhas de usuários | Banco | PBKDF2-SHA256, 210 mil iterações, sal aleatório |
+| Chave privada de licenças | Só com o fornecedor (`%USERPROFILE%\SistemaPDV-licencas`) | Nunca no repositório nem nas lojas (`*.pem` no `.gitignore`) |
+| Senha do superusuário do PostgreSQL embutido | `server.json` | DPAPI; gerada aleatoriamente na instalação |
 
 DPAPI no escopo da máquina: o arquivo copiado para outro computador não revela nada; por isso a pasta do servidor tem
 permissão restrita (qualquer processo do próprio computador com acesso ao arquivo poderia decifrá-lo).
@@ -34,6 +36,14 @@ caixa só pode operar o próprio caixa/gaveta: `terminalId` e `TerminalId` dos c
 - Dados de cartão: o PDV não lê nem guarda número de cartão (só NSU, autorização, bandeira e os últimos dígitos
   mascarados do comprovante); a leitura do cartão é do pinpad/TEF homologado.
 - Devolução de Pix exige a permissão de cancelamento e motivo, e fica na auditoria.
+
+## Licença e atualização
+
+- A licença é conferida pela assinatura ECDSA com a chave pública embutida; alterar o arquivo (ex.: aumentar caixas)
+  invalida a assinatura e coloca o sistema em modo restrito. O modo restrito nunca bloqueia acesso aos dados nem backup.
+- O instalador baixado pelo caixa é conferido pelo SHA-256 informado pelo servidor e só é oferecido a caixas conectados.
+  Pendente: assinatura Authenticode do instalador.
+- O pacote de suporte não inclui senhas, chaves, certificados nem o código de conexão (verificado por teste).
 
 ## Auditoria e logs
 

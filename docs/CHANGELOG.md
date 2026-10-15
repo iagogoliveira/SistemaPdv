@@ -1,5 +1,17 @@
 # Histórico de mudanças
 
+## 0.7.0 — Etapa 7: comercialização
+
+- Licença assinada pelo fornecedor (ECDSA P-256) presa ao computador principal: plano, limite de caixas, validade;
+  demonstração de 30 dias com 2 caixas; tolerância de 15 dias; modo restrito bloqueia vendas e abertura de caixa, sem
+  bloquear dados. Ferramenta `pdv-licenca` e tela em Retaguarda › Sistema.
+- Atualização automática dos caixas pelo servidor (instalador com SHA-256, instalação silenciosa e reabertura).
+- Pacote de logs para o suporte (servidor + caixa + resumo, sem segredos).
+- ESC/POS: abertura de gaveta (dinheiro, suprimento, sangria) e corte do papel, configuráveis por caixa.
+- Instalador: PostgreSQL 17 embutido opcional, configurado em silêncio (porta 5433), conexão gravada antes de iniciar o
+  serviço; `pg_dump` embutido usado pelo backup.
+- Manuais de licenciamento e de recuperação.
+
 ## 0.6.0 — Etapa 6: pagamentos integrados
 
 - Pix com QR Code dinâmico pela API Pix do Banco Central (ou PSP simulado), confirmação automática e acompanhamento pelo

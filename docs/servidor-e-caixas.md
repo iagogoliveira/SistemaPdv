@@ -12,6 +12,8 @@ Windows (`SistemaPDV.Servidor`). É o único programa que acessa o PostgreSQL e 
 | POST | `/api/terminals/pair` | código de conexão | Conecta o computador como caixa e devolve a chave |
 | GET | `/api/terminals/me` | chave do caixa | Quem sou eu (código, ID) |
 | POST | `/api/rpc/{Serviço}/{Método}` | chave do caixa | Chamada de serviço da aplicação (corpo: argumentos em JSON) |
+| GET | `/api/update` | chave do caixa (sem exigir a mesma versão) | Versão, nome, tamanho e SHA-256 do instalador disponível |
+| GET | `/api/update/package` | chave do caixa (sem exigir a mesma versão) | Download do instalador para a atualização automática |
 
 Todas as chamadas (exceto `health`) exigem o cabeçalho `X-Pdv-Version` igual à versão do servidor.
 Respostas de erro têm o corpo `{ "kind": "...", "message": "..." }`:
@@ -101,6 +103,8 @@ O aceite da Etapa 5 (3 caixas, um desligado à força no meio da venda, sem dupl
 | `Pdv:Fiscal:Simulator` | false | SEFAZ simulada (só homologação) |
 | `Pdv:Fiscal:SettingsFile` | `{pasta}\nfce.json` | Outro arquivo de configuração da NFC-e |
 | `Pdv:SeedDemoData` | false | Produtos de demonstração |
+| `Pdv:License:PublicKeyFile` | chave embutida | Outra chave pública de licenças (testes/treinamento) |
+| `Pdv:License:MachineCode` | código do Windows | Outro código de máquina (testes/treinamento) |
 
 ## Configuração do caixa
 

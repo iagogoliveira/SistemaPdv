@@ -7,7 +7,7 @@
 #define ServiceName "SistemaPDV.Servidor"
 #define ServerPort "5080"
 #ifndef AppVersion
-  #define AppVersion "0.6.0"
+  #define AppVersion "0.7.0"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish"
@@ -45,7 +45,10 @@ Name: "principal"; Description: "Computador principal da loja (servidor + caixa)
 Name: "caixa"; Description: "Somente caixa (conecta ao computador principal)"
 
 [Components]
-Name: "servidor"; Description: "Servidor da loja (serviço do Windows; precisa do PostgreSQL neste computador)"; Types: principal
+Name: "servidor"; Description: "Servidor da loja (serviço do Windows)"; Types: principal
+#ifdef WithPostgres
+Name: "postgres"; Description: "PostgreSQL 17 embutido (instala e configura o banco sozinho, porta 5433)"; Types: principal
+#endif
 Name: "caixa"; Description: "Programa do caixa"; Types: principal caixa; Flags: fixed
 
 [Tasks]
@@ -62,6 +65,16 @@ Name: "{commonappdata}\SistemaPDV\Servidor"; Flags: uninsneveruninstall; Compone
 ; Publicações self-contained: não exigem o runtime .NET instalado na máquina.
 Source: "{#PublishDir}\caixa\*"; DestDir: "{app}"; Excludes: "appsettings.Development.json,*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: caixa
 Source: "{#PublishDir}\servidor\*"; DestDir: "{app}\Servidor"; Excludes: "appsettings.Development.json,*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: servidor
+#ifdef WithPostgres
+Source: "{#PublishDir}\postgres\*"; DestDir: "{app}\PostgreSQL"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: postgres
+Source: "setup-postgres.ps1"; DestDir: "{app}"; Flags: ignoreversion; Components: postgres
+#endif
+; O próprio instalador fica no servidor para atualizar os caixas automaticamente.
+Source: "{srcexe}"; DestDir: "{commonappdata}\SistemaPDV\Servidor\atualizacao"; DestName: "SistemaPDV-Setup-{#AppVersion}.exe"; Flags: external ignoreversion; Components: servidor
+
+[InstallDelete]
+; Instaladores de versões anteriores guardados para os caixas.
+Type: files; Name: "{commonappdata}\SistemaPDV\Servidor\atualizacao\SistemaPDV-Setup-*.exe"; Components: servidor
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; Components: caixa
@@ -70,6 +83,10 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 [Run]
 ; Pasta do servidor sem herança: SYSTEM e Administradores (os segredos são cifrados com DPAPI da máquina).
 Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\SistemaPDV\Servidor"" /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F"; Flags: runhidden; Components: servidor
+#ifdef WithPostgres
+; Banco embutido: cluster, serviço, usuário e senhas aleatórias (não altera um cluster existente).
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\setup-postgres.ps1"" -PgBin ""{app}\PostgreSQL\bin"" -DataDir ""{commonappdata}\SistemaPDV\PostgreSQL"" -ServerJson ""{commonappdata}\SistemaPDV\Servidor\server.json"" -Port 5433"; StatusMsg: "Configurando o banco de dados..."; Flags: runhidden waituntilterminated; Components: postgres
+#endif
 Filename: "{sys}\sc.exe"; Parameters: "create {#ServiceName} binPath= ""\""{app}\Servidor\{#ServerExe}\"""" start= delayed-auto DisplayName= ""Sistema PDV - Servidor da loja"""; Flags: runhidden; Components: servidor; Check: not ServiceExists
 Filename: "{sys}\sc.exe"; Parameters: "description {#ServiceName} ""Banco de dados, NFC-e e backups do Sistema PDV para os caixas da loja."""; Flags: runhidden; Components: servidor
 ; Reinicia sozinho se cair (5 s, 5 s, 30 s).
@@ -78,9 +95,16 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Sistema PDV - Servidor"" dir=in action=allow protocol=TCP localport={#ServerPort} profile=private,domain"; Flags: runhidden; Components: servidor
 Filename: "{sys}\sc.exe"; Parameters: "start {#ServiceName}"; Flags: runhidden; Components: servidor
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent; Components: caixa
+; Atualização automática (modo silencioso, iniciada pelo próprio caixa): reabre o sistema ao terminar.
+Filename: "{app}\{#AppExe}"; Flags: nowait runasoriginaluser; Components: caixa; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{sys}\sc.exe"; Parameters: "stop {#ServiceName}"; Flags: runhidden; RunOnceId: "StopService"
+#ifdef WithPostgres
+; O banco (dados) fica em %ProgramData%\SistemaPDV\PostgreSQL: só o serviço é removido.
+Filename: "{sys}\sc.exe"; Parameters: "stop SistemaPDV-PostgreSQL"; Flags: runhidden; RunOnceId: "StopPostgres"
+Filename: "{sys}\sc.exe"; Parameters: "delete SistemaPDV-PostgreSQL"; Flags: runhidden; RunOnceId: "DeletePostgres"
+#endif
 Filename: "{sys}\sc.exe"; Parameters: "delete {#ServiceName}"; Flags: runhidden; RunOnceId: "DeleteService"
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Sistema PDV - Servidor"""; Flags: runhidden; RunOnceId: "DeleteFirewall"
 
@@ -88,6 +112,16 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=
 var
   DatabasePage: TInputQueryWizardPage;
   ServerPage: TInputQueryWizardPage;
+
+{ Componente só existe quando o instalador foi gerado com os binários do PostgreSQL (build.ps1 -PostgresZip). }
+function PostgresSelected: Boolean;
+begin
+#ifdef WithPostgres
+  Result := WizardIsComponentSelected('postgres');
+#else
+  Result := False;
+#endif
+end;
 
 function ServiceExists: Boolean;
 var
@@ -119,7 +153,8 @@ end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := (PageID = DatabasePage.ID) and not WizardIsComponentSelected('servidor');
+  // Com o PostgreSQL embutido, usuário e senha do banco são gerados automaticamente.
+  Result := (PageID = DatabasePage.ID) and (not WizardIsComponentSelected('servidor') or PostgresSelected);
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
@@ -178,10 +213,12 @@ begin
     Sleep(3000);
   end;
 
-  if CurStep = ssPostInstall then
+  // A conexão é gravada antes do [Run], que inicia o serviço do servidor.
+  if CurStep = ssInstall then
   begin
-    if WizardIsComponentSelected('servidor') then
+    if WizardIsComponentSelected('servidor') and not PostgresSelected then
     begin
+      ForceDirectories(ExpandConstant('{commonappdata}\SistemaPDV\Servidor'));
       ServerJson := ExpandConstant('{commonappdata}\SistemaPDV\Servidor\server.json');
       // Senha em texto só até o servidor iniciar: ele a cifra com DPAPI no próprio arquivo.
       if (DatabasePage.Values[1] <> '') or not FileExists(ServerJson) then
@@ -194,7 +231,10 @@ begin
           '  }' + #13#10 + '}' + #13#10, False);
       end;
     end;
+  end;
 
+  if CurStep = ssPostInstall then
+  begin
     // Caixa: só o endereço; a chave de acesso é gerada ao conectar com o código.
     // O connection.json da versão 0.1 (acesso direto ao banco, com a senha) é substituído.
     Existing := '';

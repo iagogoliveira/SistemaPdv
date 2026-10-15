@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Pdv.Application.Licensing;
 using Pdv.Application.Cash;
 using Pdv.Application.Catalog;
 using Pdv.Application.Fiscal;
@@ -29,6 +31,8 @@ public static class DependencyInjection
         services.AddScoped<TerminalAdminService>();
         services.AddScoped<PixService>();
         services.AddScoped<PixConfigurationService>();
+        // O servidor substitui por LicenseService; sem ele (testes de serviços), nada é bloqueado.
+        services.TryAddScoped<ILicenseGuard, UnrestrictedLicenseGuard>();
         services.AddScoped<SupplierService>();
         services.AddScoped<PurchaseService>();
         services.AddScoped<ReturnService>();

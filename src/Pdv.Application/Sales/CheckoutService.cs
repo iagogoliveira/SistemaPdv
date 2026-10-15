@@ -31,7 +31,8 @@ public sealed record FinalizeSaleCommand(
 
 public sealed record SaleReceipt(Guid SaleId, long Number, decimal Total, decimal Paid, decimal Change, bool AlreadyProcessed);
 
-public sealed class CheckoutService(IPdvDbContext db, PermissionChecker permissions, Payments.IPixSettingsStore pixSettings, TimeProvider clock)
+public sealed class CheckoutService(IPdvDbContext db, PermissionChecker permissions, Payments.IPixSettingsStore pixSettings,
+    Licensing.ILicenseGuard license, TimeProvider clock)
 {
     public async Task<Result<SaleReceipt>> FinalizeAsync(FinalizeSaleCommand command, CancellationToken ct = default)
     {
@@ -40,6 +41,7 @@ public sealed class CheckoutService(IPdvDbContext db, PermissionChecker permissi
 
         try
         {
+            await license.EnsureCanSellAsync(ct);
             var sale = await BuildSaleAsync(command, ct);
 
             // Venda, itens, pagamentos, estoque, caixa e auditoria em um único SaveChanges = uma transação.

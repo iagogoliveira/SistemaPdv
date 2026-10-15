@@ -69,12 +69,22 @@ O servidor aplica as migrações ao iniciar. Nunca altere uma migração já pub
 ## Instalador
 
 ```bash
-powershell -ExecutionPolicy Bypass -File installer/build.ps1 -Version 0.6.0
+powershell -ExecutionPolicy Bypass -File installer/build.ps1 -Version 0.7.0
 ```
 
 Publica caixa e servidor (self-contained, win-x64) em `artifacts/publish/{caixa,servidor}` e compila
 `installer/SistemaPDV.iss` com o Inno Setup 6. `-SkipInstaller` só publica. A versão do produto fica em
-`Directory.Build.props` e precisa ser a mesma no caixa e no servidor.
+`Directory.Build.props` e precisa ser a mesma no caixa e no servidor. `-PostgresZip <postgresql-17.x-windows-x64-binaries.zip>`
+embute o PostgreSQL (componente opcional do computador principal).
+
+O script `installer/setup-postgres.ps1 -NoService` pode ser testado sem instalar serviço (cluster temporário em outra
+porta).
+
+## Licenças em desenvolvimento
+
+Sem licença o servidor entra em demonstração (30 dias, 2 caixas). Para testes, gere chaves próprias com
+`dotnet run --project tools/Pdv.LicenseTool -- gerar-chaves --pasta <pasta>` e aponte o servidor para elas com
+`Pdv__License__PublicKeyFile` e `Pdv__License__MachineCode` (os testes do servidor fazem isso).
 
 ## Convenções
 

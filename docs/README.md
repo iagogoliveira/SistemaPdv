@@ -13,6 +13,8 @@ Esta pasta é a documentação oficial do projeto e é **atualizada junto com ca
 | [Manual de operação](operacao.md) | Operador / gerente | Atalhos do caixa, retaguarda, relatórios, backup |
 | [Instalação e configuração](instalacao.md) | Técnico de implantação | Instalador, pré-requisitos, arquivos de configuração, firewall, atualização |
 | [Segurança](seguranca.md) | Desenvolvimento / técnico | Permissões, segredos (DPAPI), chaves dos caixas, limitações conhecidas |
+| [Licenciamento](licenciamento.md) | Fornecedor / técnico | Licença assinada, demonstração, limites, transferência, ferramenta `pdv-licenca` |
+| [Recuperação e suporte](recuperacao.md) | Técnico / suporte | Pacote de logs, problemas comuns, restauração, troca do computador principal |
 | [Desenvolvimento](desenvolvimento.md) | Desenvolvimento | Ambiente, execução, testes, migrações, convenções |
 | [Roadmap](ROADMAP.md) | Todos | Etapas até a operação em loja real e pendências |
 | [Histórico de mudanças](CHANGELOG.md) | Todos | O que mudou em cada versão |

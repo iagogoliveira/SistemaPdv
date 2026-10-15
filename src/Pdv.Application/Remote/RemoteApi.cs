@@ -5,6 +5,7 @@ using Pdv.Application.Cash;
 using Pdv.Application.Catalog;
 using Pdv.Application.Fiscal;
 using Pdv.Application.Identity;
+using Pdv.Application.Licensing;
 using Pdv.Application.Maintenance;
 using Pdv.Application.Payments;
 using Pdv.Application.Purchases;
@@ -38,7 +39,7 @@ public static class RemoteApi
         typeof(SalesQueryService), typeof(CompanySettingsService), typeof(TaxProfileService), typeof(NfceService),
         typeof(NfceConfigurationService), typeof(SupplierService), typeof(PurchaseService), typeof(ReturnService),
         typeof(ReportService), typeof(CashService), typeof(CheckoutService), typeof(TerminalAdminService),
-        typeof(PixService), typeof(PixConfigurationService),
+        typeof(PixService), typeof(PixConfigurationService), typeof(LicenseService),
         typeof(IBackupManager), typeof(IServerAdmin), typeof(IDemoDataSeeder),
     ];
 
@@ -61,6 +62,9 @@ public sealed record RemoteError(string Kind, string Message)
 }
 
 public sealed record ServerHealth(string Version, string MachineName, bool Maintenance);
+
+/// <summary>Instalador disponível no servidor para atualizar os caixas.</summary>
+public sealed record UpdateInfo(string Version, string FileName, long SizeBytes, string Sha256);
 
 public sealed record PairRequest(string MachineName, string? PairingCode);
 

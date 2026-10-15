@@ -3,6 +3,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Pdv.Application;
+using Pdv.Application.Licensing;
 using Pdv.Application.Maintenance;
 using Pdv.Application.Terminals;
 using Pdv.Domain.Identity;
@@ -27,6 +28,10 @@ public partial class AdminViewModel
     [ObservableProperty] private string _backupCopyFolder = "";
     [ObservableProperty] private string _backupStatusText = "";
     [ObservableProperty] private bool _backupHasError;
+    [ObservableProperty] private string _licenseSummary = "";
+    [ObservableProperty] private string _licenseDetail = "";
+    [ObservableProperty] private string _machineCode = "";
+    [ObservableProperty] private bool _licenseHasProblem;
 
     private async Task LoadSystemAsync()
     {
@@ -34,6 +39,7 @@ public partial class AdminViewModel
         var info = await Runner.RunAsync<IServerAdmin, ServerInfo>(s => s.GetInfoAsync(ActorId, default));
         ServerSummary = $"Servidor {info.MachineName} · versão {info.Version} · no ar desde {info.StartedAt.ToLocalTime():dd/MM HH:mm} · dados em {info.DataFolder}";
         PairingCode = info.PairingCode ?? "";
+        ApplyLicense(await Runner.RunAsync<LicenseService, LicenseStatus>(s => s.GetStatusAsync(ActorId, default)));
         await LoadTerminalsAsync();
         ApplyBackupStatus(await Runner.RunAsync<IBackupManager, BackupStatus>(b => b.GetStatusAsync(ActorId, default)), loadSettings: true);
     }
@@ -61,6 +67,69 @@ public partial class AdminViewModel
             ?? (status.LastBackupAt is { } last
                 ? $"Último backup: {last.ToLocalTime():dd/MM/yyyy HH:mm} · {status.Files.Count} arquivo(s) em {status.Folder}"
                 : "Nenhum backup feito ainda.");
+    }
+
+    private void ApplyLicense(LicenseStatus s)
+    {
+        LicenseSummary = s.State switch
+        {
+            LicenseState.Trial => $"Demonstração — {s.DaysLeft} dia(s) restante(s)",
+            LicenseState.Active => $"Licença ativa — {s.Customer}",
+            LicenseState.Grace => "Licença vencida (em tolerância)",
+            _ => "Vendas bloqueadas — licença necessária",
+        };
+        LicenseDetail = $"{s.Plan} · {s.UsedTerminals} de {s.MaxTerminals} caixa(s) · " +
+            (s.ExpiresAt is { } e ? $"validade {e:dd/MM/yyyy}" : "sem vencimento") + $"\n{s.Message}";
+        MachineCode = s.MachineCode ?? "";
+        LicenseHasProblem = s.State is LicenseState.Grace or LicenseState.Restricted || s.Warning is not null;
+    }
+
+    [RelayCommand]
+    private async Task InstallLicenseAsync()
+    {
+        var file = Dialogs.PickFile("Licença do Sistema PDV", "Licença (*.pdvlic)|*.pdvlic");
+        if (file is null) return;
+        var text = await System.IO.File.ReadAllTextAsync(file);
+        var result = await Runner.RunAsync<LicenseService, Result<LicenseStatus>>(s => s.InstallAsync(ActorId, text, default));
+        if (!result.Succeeded) { Dialogs.ShowError(result.Error!); return; }
+        ApplyLicense(result.Value!);
+        Dialogs.ShowInfo($"Licença instalada.\n{result.Value!.Message}");
+    }
+
+    [RelayCommand]
+    private void CopyMachineCode()
+    {
+        if (MachineCode.Length == 0) return;
+        System.Windows.Clipboard.SetText(MachineCode);
+        Dialogs.ShowInfo($"Código da máquina copiado: {MachineCode}\nEnvie ao fornecedor para emitir ou transferir a licença.");
+    }
+
+    /// <summary>Logs do servidor e deste caixa num .zip para enviar ao suporte (sem senhas, chaves ou certificados).</summary>
+    [RelayCommand]
+    private async Task ExportSupportPackageAsync()
+    {
+        var path = Dialogs.PickSaveFile("Pacote para o suporte", "Arquivo compactado (*.zip)|*.zip",
+            $"suporte-pdv-{DateTime.Now:yyyyMMdd-HHmm}.zip");
+        if (path is null) return;
+        var server = await Runner.RunAsync<IServerAdmin, byte[]>(s => s.ExportSupportPackageAsync(ActorId, default));
+        await System.IO.File.WriteAllBytesAsync(path, server);
+        using (var zip = System.IO.Compression.ZipFile.Open(path, System.IO.Compression.ZipArchiveMode.Update))
+        {
+            var summary = zip.CreateEntry("resumo-caixa.txt");
+            using (var writer = new System.IO.StreamWriter(summary.Open()))
+                writer.Write($"Caixa {state.Terminal.Code} ({state.Terminal.MachineName}) | versão {Application.Remote.RemoteApi.Version} | " +
+                    $"{Environment.OSVersion} | operador {state.User!.Username} | {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}");
+            var logs = System.IO.Path.Combine(Services.LocalSettings.Folder, "logs");
+            if (System.IO.Directory.Exists(logs))
+                foreach (var file in new System.IO.DirectoryInfo(logs).GetFiles("*.log").Where(f => f.LastWriteTimeUtc > DateTime.UtcNow.AddDays(-7)))
+                {
+                    using var source = new System.IO.FileStream(file.FullName, System.IO.FileMode.Open, System.IO.FileAccess.Read,
+                        System.IO.FileShare.ReadWrite | System.IO.FileShare.Delete);
+                    using var target = zip.CreateEntry($"logs-caixa-{state.Terminal.Code}/{file.Name}").Open();
+                    source.CopyTo(target);
+                }
+        }
+        Dialogs.ShowInfo($"Pacote para o suporte gravado em:\n{path}\n\nContém logs do servidor e deste caixa e um resumo técnico — sem senhas, chaves ou certificados.");
     }
 
     [RelayCommand]

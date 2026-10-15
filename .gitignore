@@ -480,3 +480,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Licenciamento: chave privada do fornecedor e licenças emitidas nunca vão para o repositório
+*.pem
+*.pdvlic

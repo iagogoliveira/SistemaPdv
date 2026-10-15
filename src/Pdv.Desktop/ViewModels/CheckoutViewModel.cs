@@ -62,6 +62,7 @@ public partial class CheckoutViewModel(
     Func<AdminViewModel> adminFactory,
     SaleJournal journal,
     PaymentDevices devices,
+    RawPrinter rawPrinter,
     TicketPrinter tickets,
     Func<LoginViewModel> loginFactory) : ObservableObject
 {
@@ -162,7 +163,9 @@ public partial class CheckoutViewModel(
         await RecoverInterruptedSaleAsync();
         await UndoLeftoverCardPaymentsAsync();
         await RefreshPaymentOptionsAsync();
-        if (!IsCashOpen) await OpenCashAsync();
+        var license = await runner.RunAsync<Pdv.Application.Licensing.LicenseService, Pdv.Application.Licensing.LicenseStatus>(s => s.GetStatusAsync(null, default));
+        if (license.Warning is { } warning) dialogs.ShowInfo(warning);
+        if (!IsCashOpen && license.CanSell) await OpenCashAsync();
     }
 
     private async Task RefreshPaymentOptionsAsync() =>
@@ -659,6 +662,7 @@ public partial class CheckoutViewModel(
         Log.Information("Venda {Number} ({SaleId}) concluída: {Total} (repetida: {Repeated})",
             receipt.Number, receipt.SaleId, receipt.Total, receipt.AlreadyProcessed);
         var cards = Payments.Select(p => p.Tef).OfType<TefApproval>().ToList();
+        if (Payments.Any(p => p.Method == PaymentMethod.Cash)) rawPrinter.OpenDrawer();
         await SettleCardsAsync(cards, confirm: true);
         ResetCart(receipt.Change > 0 ? $"Venda nº {receipt.Number} concluída. TROCO: {receipt.Change:C}" : $"Venda nº {receipt.Number} concluída.");
         await RefreshCashAsync();
@@ -751,6 +755,7 @@ public partial class CheckoutViewModel(
         try
         {
             printer.Print(data, fiscal);
+            rawPrinter.Cut();
             return true;
         }
         catch (Exception ex)
@@ -890,6 +895,7 @@ public partial class CheckoutViewModel(
         if (userId is null) return;
         var result = await runner.RunAsync<CashService, Result<CashSessionSummary>>(c =>
             c.SupplyAsync(state.Terminal.Id, userId.Value, amount, reason));
+        if (result.Succeeded) rawPrinter.OpenDrawer();
         await ReportAsync(result, "Suprimento registrado.");
     }
 
@@ -903,6 +909,7 @@ public partial class CheckoutViewModel(
         if (userId is null) return;
         var result = await runner.RunAsync<CashService, Result<CashSessionSummary>>(c =>
             c.WithdrawAsync(state.Terminal.Id, userId.Value, amount, reason));
+        if (result.Succeeded) rawPrinter.OpenDrawer();
         await ReportAsync(result, "Sangria registrada.");
     }
 

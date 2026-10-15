@@ -61,6 +61,39 @@ public sealed class PdvServerClient(HttpClient http)
     public Task<TerminalInfo> GetCurrentTerminalAsync(CancellationToken ct = default) =>
         SendAsync<TerminalInfo>(HttpMethod.Get, "api/terminals/me", null, TimeSpan.FromSeconds(10), ct);
 
+    public Task<UpdateInfo> GetUpdateInfoAsync(CancellationToken ct = default) =>
+        SendAsync<UpdateInfo>(HttpMethod.Get, "api/update", null, TimeSpan.FromSeconds(30), ct);
+
+    /// <summary>Baixa o instalador e confere o SHA-256 informado pelo servidor; devolve o caminho do arquivo baixado.</summary>
+    public async Task<string> DownloadUpdateAsync(UpdateInfo info, string folder, IProgress<double>? progress = null, CancellationToken ct = default)
+    {
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, Path.GetFileName(info.FileName));
+        using (var response = await SendRawAsync(HttpMethod.Get, "api/update/package", null, TimeSpan.FromMinutes(30), ct))
+        await using (var source = await response.Content.ReadAsStreamAsync(ct))
+        await using (var target = File.Create(path))
+        {
+            var buffer = new byte[81920];
+            long done = 0;
+            int read;
+            while ((read = await source.ReadAsync(buffer, ct)) > 0)
+            {
+                await target.WriteAsync(buffer.AsMemory(0, read), ct);
+                done += read;
+                progress?.Report(info.SizeBytes == 0 ? 0 : (double)done / info.SizeBytes);
+            }
+        }
+        string hash;
+        await using (var check = File.OpenRead(path))
+            hash = Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(check, ct));
+        if (!string.Equals(hash, info.Sha256, StringComparison.OrdinalIgnoreCase))
+        {
+            File.Delete(path);
+            throw new ServerException("O instalador baixado está corrompido (SHA-256 diferente). Tente de novo.");
+        }
+        return path;
+    }
+
     /// <summary>Chama serviço/método com os argumentos já em JSON; devolve o resultado desserializado como <paramref name="resultType"/>.</summary>
     public async Task<object?> InvokeAsync(string service, string method, JsonArray args, Type? resultType, TimeSpan timeout,
         CancellationToken ct = default)

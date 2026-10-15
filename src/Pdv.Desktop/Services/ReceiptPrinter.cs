@@ -30,11 +30,20 @@ public sealed class ReceiptOptions
 
     /// <summary>Largura do papel em milímetros (80 ou 58 nas bobinas térmicas comuns).</summary>
     public int PaperWidthMm { get; set; } = 80;
+
+    /// <summary>Abre a gaveta ligada à impressora (ESC/POS) em vendas com dinheiro, suprimento e sangria.</summary>
+    public bool OpenDrawer { get; set; }
+
+    /// <summary>Conector da gaveta: 0 = pino 2 (padrão), 1 = pino 5.</summary>
+    public int DrawerPin { get; set; }
+
+    /// <summary>Envia o comando de corte (ESC/POS) após o comprovante — para drivers que não cortam sozinhos.</summary>
+    public bool CutPaper { get; set; }
 }
 
 /// <summary>
 /// Comprovante não fiscal ou DANFE NFC-e (quando a venda tem nota), impresso pelo driver do Windows (spooler). Funciona com qualquer impressora
-/// térmica que tenha driver instalado; comandos ESC/POS diretos (guilhotina, gaveta) ficam para a matriz de hardware.
+/// térmica que tenha driver instalado; gaveta e guilhotina usam comandos ESC/POS diretos (<see cref="RawPrinter"/>).
 /// </summary>
 public sealed class ReceiptPrinter(IConfiguration configuration)
 {

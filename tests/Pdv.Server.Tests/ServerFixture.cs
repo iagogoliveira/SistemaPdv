@@ -35,8 +35,16 @@ public sealed class ServerFixture : IAsyncLifetime
 
     private TestServer Server => (TestServer)App.Services.GetRequiredService<IServer>();
 
+    public const string MachineCode = "TEST-0000-0000-0001";
+
+    /// <summary>Par de chaves só dos testes: a licença do servidor de teste é emitida aqui (50 caixas).</summary>
+    public (string PrivatePem, string PublicPem) LicenseKeys { get; } = Application.Licensing.LicenseCodec.NewKeyPair();
+
     public async ValueTask InitializeAsync()
     {
+        Directory.CreateDirectory(Folder);
+        await File.WriteAllTextAsync(Path.Combine(Folder, "chave-publica.pem"), LicenseKeys.PublicPem);
+        await File.WriteAllTextAsync(Path.Combine(Folder, "licenca.pdvlic"), IssueLicense(50, null));
         App = ServerApp.Build([], b =>
         {
             b.WebHost.UseTestServer();
@@ -45,6 +53,8 @@ public sealed class ServerFixture : IAsyncLifetime
                 ["ConnectionStrings:Pdv"] = ConnectionString,
                 ["Pdv:Server:DataFolder"] = Folder,
                 ["Pdv:Fiscal:SettingsFile"] = Path.Combine(Folder, "nfce-desligada.json"),
+                ["Pdv:License:PublicKeyFile"] = Path.Combine(Folder, "chave-publica.pem"),
+                ["Pdv:License:MachineCode"] = MachineCode,
             });
         });
         await ServerApp.InitializeDatabaseAsync(App.Services);
@@ -70,6 +80,10 @@ public sealed class ServerFixture : IAsyncLifetime
         client.AccessKey = pair.AccessKey;
         return new TestTerminal(client, new ServerRunner(client), pair.Terminal, pair.AccessKey);
     }
+
+    public string IssueLicense(int terminals, DateOnly? expires, string machine = MachineCode) =>
+        Application.Licensing.LicenseCodec.Sign(new Application.Licensing.LicenseData("LIC-TESTE", "Loja de Teste", null, "Teste", terminals,
+            DateOnly.FromDateTime(DateTime.Today), expires, machine), LicenseKeys.PrivatePem);
 
     public PdvServerClient NewClient() => new(Server.CreateClient());
 
