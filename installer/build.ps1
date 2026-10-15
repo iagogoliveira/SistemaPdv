@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Publica o Sistema PDV (self-contained, win-x64) e gera o instalador com Inno Setup 6.
 .EXAMPLE
@@ -35,7 +35,10 @@ if ($PostgresZip) {
     # Só o necessário para rodar o servidor e o backup (sem pgAdmin, documentação, símbolos e cabeçalhos).
     $target = Join-Path $publishDir "postgres"
     foreach ($dir in @("bin", "lib", "share")) { Copy-Item (Join-Path $pgsql $dir) (Join-Path $target $dir) -Recurse }
-    Get-ChildItem (Join-Path $target "bin") -Filter "pgAdmin*" | Remove-Item -Recurse -Force
+    # Fora: pgAdmin, StackBuilder (e as bibliotecas wx dele), símbolos de depuração e ferramentas de teste do PostgreSQL.
+    Get-ChildItem (Join-Path $target "bin") | Where-Object { $_.Name -like "pgAdmin*" -or $_.Name -like "stackbuilder*" -or $_.Name -like "wx*.dll" -or $_.Extension -eq ".pdb" } |
+        Remove-Item -Recurse -Force
+    Remove-Item (Join-Path $target "lib\pgxs") -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item $extract -Recurse -Force
     $isccDefines += "/DWithPostgres"
 }

@@ -29,7 +29,7 @@ Itens conhecidos que ficam fora das etapas em andamento e serão retomados antes
 - NF-e de entrada para devoluções de venda com NFC-e (a devolução da Etapa 4 é só operacional: estoque e caixa).
 
 **Infraestrutura (Etapas 6–7)**
-- Instalador compilado e testado em Windows limpo (o Inno Setup não está nesta máquina); assinatura Authenticode do
+- Instalador testado em Windows limpo (já compila; ainda sem teste numa máquina limpa); assinatura Authenticode do
   instalador e dos executáveis; atualização do caixa sem exigir administrador (serviço de atualização).
 - Licenciamento online opcional (ativação/transferência pelo portal do fornecedor) — hoje é por arquivo assinado.
 - Sessões de usuário emitidas pelo servidor (hoje ele confia no ID do usuário enviado por um caixa conectado) e HTTPS
@@ -157,7 +157,8 @@ instalação silenciosa e reabertura). **PostgreSQL embutido** opcional no insta
 **ESC/POS** para abrir a gaveta e cortar o papel; manuais de licenciamento e de recuperação. Percorrido pela interface:
 demonstração, bloqueio ao vencer, licença emitida pela ferramenta e venda liberada.
 
-Falta: compilar o instalador e testá-lo em Windows limpo (Inno Setup não está nesta máquina), incluindo o PostgreSQL
+Instalador compilado (`SistemaPDV-Setup-0.7.0.exe`, 103 MB, com PostgreSQL 17.11 embutido; os binários embutidos
+passaram pelo script de configuração e pelo `pg_dump`). Falta: testá-lo em Windows limpo, incluindo o PostgreSQL
 embutido com os binários da EDB e a atualização silenciosa (exige senha de administrador no caixa); testar leitor,
 impressora térmica, guilhotina e gaveta reais; assinatura digital (Authenticode) do instalador.
 

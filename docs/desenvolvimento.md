@@ -73,9 +73,12 @@ powershell -ExecutionPolicy Bypass -File installer/build.ps1 -Version 0.7.0
 ```
 
 Publica caixa e servidor (self-contained, win-x64) em `artifacts/publish/{caixa,servidor}` e compila
-`installer/SistemaPDV.iss` com o Inno Setup 6. `-SkipInstaller` só publica. A versão do produto fica em
+`installer/SistemaPDV.iss` com o Inno Setup 6 (`winget install JRSoftware.InnoSetup`). `-SkipInstaller` só publica. A versão do produto fica em
 `Directory.Build.props` e precisa ser a mesma no caixa e no servidor. `-PostgresZip <postgresql-17.x-windows-x64-binaries.zip>`
-embute o PostgreSQL (componente opcional do computador principal).
+embute o PostgreSQL (componente opcional do computador principal). O zip é o da EDB
+(`https://get.enterprisedb.com/postgresql/postgresql-17.x-1-windows-x64-binaries.zip`); o script deixa de fora pgAdmin,
+StackBuilder, símbolos e ferramentas de teste (instalador final ≈ 103 MB). Guarde o zip em `artifacts/downloads`
+(ignorado pelo Git).
 
 O script `installer/setup-postgres.ps1 -NoService` pode ser testado sem instalar serviço (cluster temporário em outra
 porta).
