@@ -1,3 +1,4 @@
+using Pdv.Client;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Pdv.Application;
@@ -6,7 +7,7 @@ using Pdv.Desktop.Services;
 
 namespace Pdv.Desktop.ViewModels;
 
-public partial class LoginViewModel(ScopedRunner runner, AppState state) : ObservableObject
+public partial class LoginViewModel(ServerRunner runner, AppState state) : ObservableObject
 {
     [ObservableProperty]
     private bool _isSetupMode;
@@ -44,9 +45,9 @@ public partial class LoginViewModel(ScopedRunner runner, AppState state) : Obser
         IsBusy = true;
         try
         {
-            Result<UserSession> result = await runner.RunAsync<AuthenticationService, Result<UserSession>>(auth => IsSetupMode
-                ? auth.CreateInitialAdminAsync(Username, DisplayName, password)
-                : auth.LoginAsync(Username, password));
+            Result<UserSession> result = IsSetupMode
+                ? await runner.RunAsync<AuthenticationService, Result<UserSession>>(auth => auth.CreateInitialAdminAsync(Username, DisplayName, password, default))
+                : await runner.RunAsync<AuthenticationService, Result<UserSession>>(auth => auth.LoginAsync(Username, password, default));
 
             if (!result.Succeeded)
             {

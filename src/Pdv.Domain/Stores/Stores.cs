@@ -126,8 +126,38 @@ public class Terminal : Entity
         IsActive = true;
     }
 
+    /// <summary>Recria um caixa com o mesmo ID (restauração de backup anterior ao cadastro do caixa).</summary>
+    public static Terminal Recreate(Guid id, Guid storeId, string code, string machineName) =>
+        new(storeId, code, machineName) { Id = id };
+
     public Guid StoreId { get; private set; }
     public string Code { get; private set; }
     public string MachineName { get; private set; }
     public bool IsActive { get; private set; }
+
+    /// <summary>Hash (SHA-256) da chave de acesso do caixa ao servidor; a chave em si fica só no caixa.</summary>
+    public string? AccessKeyHash { get; private set; }
+    public DateTimeOffset? PairedAt { get; private set; }
+    public DateTimeOffset? LastSeenAt { get; private set; }
+    public string? AppVersion { get; private set; }
+
+    /// <summary>Conecta (ou reconecta) o caixa ao servidor com uma nova chave; a anterior deixa de valer.</summary>
+    public void Pair(string accessKeyHash, DateTimeOffset at)
+    {
+        AccessKeyHash = accessKeyHash;
+        PairedAt = at;
+        IsActive = true;
+    }
+
+    public void Revoke()
+    {
+        AccessKeyHash = null;
+        IsActive = false;
+    }
+
+    public void Seen(DateTimeOffset at, string? appVersion)
+    {
+        LastSeenAt = at;
+        AppVersion = appVersion;
+    }
 }

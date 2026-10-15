@@ -2,10 +2,10 @@
 .SYNOPSIS
   Publica o Sistema PDV (self-contained, win-x64) e gera o instalador com Inno Setup 6.
 .EXAMPLE
-  .\installer\build.ps1 -Version 0.2.0
+  .\installer\build.ps1 -Version 0.5.0
 #>
 param(
-    [string]$Version = "0.1.0",
+    [string]$Version = "0.5.0",
     [switch]$SkipInstaller
 )
 
@@ -15,11 +15,14 @@ $publishDir = Join-Path $root "artifacts\publish"
 
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 
-dotnet publish (Join-Path $root "src\Pdv.Desktop\Pdv.Desktop.csproj") `
-    -c Release -r win-x64 --self-contained true `
-    -p:Version=$Version -p:DebugType=none `
-    -o $publishDir
-if ($LASTEXITCODE -ne 0) { throw "dotnet publish falhou." }
+foreach ($app in @(@{ Project = "src\Pdv.Desktop\Pdv.Desktop.csproj"; Out = "caixa" },
+                   @{ Project = "src\Pdv.Server\Pdv.Server.csproj"; Out = "servidor" })) {
+    dotnet publish (Join-Path $root $app.Project) `
+        -c Release -r win-x64 --self-contained true `
+        -p:Version=$Version -p:DebugType=none `
+        -o (Join-Path $publishDir $app.Out)
+    if ($LASTEXITCODE -ne 0) { throw "dotnet publish falhou ($($app.Project))." }
+}
 
 if ($SkipInstaller) {
     Write-Host "Publicação pronta em $publishDir"

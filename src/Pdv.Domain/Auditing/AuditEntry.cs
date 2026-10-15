@@ -38,4 +38,7 @@ public static class AuditActions
     public const string CashWithdrawal = "cash.withdrawal";
     public const string CashClosed = "cash.closed";
     public const string StockAdjusted = "stock.adjusted";
+    public const string TerminalPaired = "terminal.paired";
+    public const string TerminalRevoked = "terminal.revoked";
+    public const string BackupRestored = "backup.restored";
 }

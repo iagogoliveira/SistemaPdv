@@ -23,6 +23,9 @@ public interface INfceSettingsStore
 {
     NfceSettings Load();
     void Save(NfceSettings settings);
+
+    /// <summary>Grava o certificado A1 (.pfx) na pasta do servidor e devolve o caminho a usar em <see cref="NfceSettings.CertificatePath"/>.</summary>
+    string ImportCertificate(byte[] pfx);
 }
 
 /// <summary>Tudo o que é preciso para montar o XML: vem do retrato da venda e dos dados do emitente.</summary>

@@ -4,7 +4,7 @@ using Pdv.Domain.Identity;
 
 namespace Pdv.Application.Identity;
 
-public sealed record UserSession(Guid UserId, string Username, string DisplayName, IReadOnlySet<string> Permissions)
+public sealed record UserSession(Guid UserId, string Username, string DisplayName, IReadOnlyCollection<string> Permissions)
 {
     public bool Can(string permission) => Permissions.Contains(permission);
 }

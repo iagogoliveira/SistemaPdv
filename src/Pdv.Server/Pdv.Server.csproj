@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pdv.Application\Pdv.Application.csproj" />
+    <ProjectReference Include="..\Pdv.Infrastructure\Pdv.Infrastructure.csproj" />
+    <ProjectReference Include="..\Pdv.Fiscal\Pdv.Fiscal.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.13" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>SistemaPDV.Servidor</AssemblyName>
+    <RootNamespace>Pdv.Server</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- Logs do servidor são poucos e fora do caminho crítico; mensagens com template são suficientes. -->
+    <NoWarn>$(NoWarn);CA1848;CA1873</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Pdv.Server.Tests" />
+  </ItemGroup>
+
+</Project>

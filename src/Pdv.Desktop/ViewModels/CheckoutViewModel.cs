@@ -1,3 +1,4 @@
+using Pdv.Client;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -41,13 +42,13 @@ public partial class CartLine(int number, ProductLookupItem product, decimal qua
 }
 
 public partial class CheckoutViewModel(
-    ScopedRunner runner,
+    ServerRunner runner,
     AppState state,
     IDialogService dialogs,
     SupervisorAuthorizer authorizer,
     ReceiptPrinter printer,
     Func<AdminViewModel> adminFactory,
-    INfceSettingsStore nfceSettings,
+    SaleJournal journal,
     TicketPrinter tickets,
     Func<LoginViewModel> loginFactory) : ObservableObject
 {
@@ -121,7 +122,7 @@ public partial class CheckoutViewModel(
 
     public bool CanOpenAdmin => state.User is { } u &&
         (u.Can(Permissions.ManageProducts) || u.Can(Permissions.AdjustStock) || u.Can(Permissions.ManageUsers)
-         || u.Can(Permissions.ViewReports) || u.Can(Permissions.ManageCompany));
+         || u.Can(Permissions.ViewReports) || u.Can(Permissions.ManageCompany) || u.Can(Permissions.ManageSystem));
 
     public decimal Subtotal => Items.Sum(i => i.GrossTotal);
     public decimal DiscountTotal => Items.Sum(i => i.Discount);
@@ -142,7 +143,52 @@ public partial class CheckoutViewModel(
         };
         Payments.CollectionChanged += (_, _) => NotifyTotals();
         await RefreshCashAsync();
+        await RecoverInterruptedSaleAsync();
         if (!IsCashOpen) await OpenCashAsync();
+    }
+
+    /// <summary>
+    /// O caixa desligou (queda de energia, travamento) enquanto concluía uma venda: o diário local diz qual era,
+    /// e o servidor diz, pela chave de idempotência, se ela chegou a ser gravada. Nada é duplicado nem perdido.
+    /// </summary>
+    private async Task RecoverInterruptedSaleAsync()
+    {
+        var pending = journal.Load();
+        if (pending is null) return;
+
+        var found = await runner.RunAsync<SalesQueryService, SaleListItem?>(q => q.FindByRequestAsync(pending.ClientRequestId, default));
+        if (found is not null)
+        {
+            journal.Clear();
+            Log.Information("Venda interrompida {RequestId} já estava gravada como nº {Number}", pending.ClientRequestId, found.Number);
+            StatusMessage = $"Venda nº {found.Number} (interrompida) já estava gravada.";
+            dialogs.ShowInfo($"O caixa foi interrompido enquanto concluía uma venda.\n\nA venda nº {found.Number} ({found.Total:C}) FOI GRAVADA no servidor — " +
+                "não é preciso registrar de novo. Use F8 para reimprimir o comprovante.");
+            return;
+        }
+
+        var paid = pending.Payments.Sum(p => p.Amount);
+        if (!dialogs.Confirm($"O caixa foi interrompido enquanto concluía uma venda que NÃO chegou ao servidor " +
+            $"({pending.Items.Count} item(ns), pagamentos de {paid:C}).\n\nConcluir essa venda agora?\n" +
+            "(Não = descartar: nem a mercadoria nem o dinheiro foram registrados.)"))
+        {
+            journal.Clear();
+            Log.Warning("Venda interrompida {RequestId} descartada pelo operador", pending.ClientRequestId);
+            return;
+        }
+
+        var result = await runner.RunAsync<CheckoutService, Result<SaleReceipt>>(c => c.FinalizeAsync(pending, default));
+        journal.Clear();
+        if (!result.Succeeded)
+        {
+            dialogs.ShowError($"Não foi possível concluir a venda interrompida:\n{result.Error}\n\nRegistre a venda de novo.");
+            return;
+        }
+        Log.Information("Venda interrompida {RequestId} concluída como nº {Number}", pending.ClientRequestId, result.Value!.Number);
+        StatusMessage = $"Venda nº {result.Value.Number} (interrompida) concluída.";
+        await RefreshCashAsync();
+        var fiscal = await IssueNfceAsync(result.Value);
+        await PrintAfterSaleAsync(result.Value, fiscal);
     }
 
     // ---------- Itens ----------
@@ -167,11 +213,9 @@ public partial class CheckoutViewModel(
             input = input[(star + 1)..].Trim();
         }
 
-        var (product, matches) = await runner.RunAsync<ProductLookupService, (ProductLookupItem?, IReadOnlyList<ProductLookupItem>)>(async lookup =>
-        {
-            var byCode = await lookup.FindByBarcodeAsync(input);
-            return byCode is not null ? (byCode, []) : (null, await lookup.SearchAsync(input, take: 30));
-        });
+        var product = await runner.RunAsync<ProductLookupService, ProductLookupItem?>(lookup => lookup.FindByBarcodeAsync(input, default));
+        IReadOnlyList<ProductLookupItem> matches = product is not null ? []
+            : await runner.RunAsync<ProductLookupService, IReadOnlyList<ProductLookupItem>>(lookup => lookup.SearchAsync(input, 30, default));
 
         product ??= matches.Count switch
         {
@@ -235,7 +279,7 @@ public partial class CheckoutViewModel(
     {
         var term = dialogs.Prompt("Consulta de preço", "Código de barras ou parte do nome:");
         if (string.IsNullOrWhiteSpace(term)) return;
-        var found = await runner.RunAsync<ProductLookupService, IReadOnlyList<(ProductLookupItem Product, decimal Stock)>>(s => s.PriceCheckAsync(term));
+        var found = await runner.RunAsync<ProductLookupService, IReadOnlyList<PriceCheckRow>>(s => s.PriceCheckAsync(term));
         if (found.Count == 0) { dialogs.ShowError("Nenhum produto encontrado."); return; }
         if (found.Count == 1)
         {
@@ -477,9 +521,12 @@ public partial class CheckoutViewModel(
 
         IsBusy = true;
         SaleReceipt receipt;
+        // Gravado no disco antes de enviar: se o caixa desligar agora, na volta o sistema confere no servidor.
+        journal.Save(command);
         try
         {
-            var result = await runner.RunAsync<CheckoutService, Result<SaleReceipt>>(c => c.FinalizeAsync(command));
+            var result = await runner.RunAsync<CheckoutService, Result<SaleReceipt>>(c => c.FinalizeAsync(command, default));
+            journal.Clear(); // o servidor respondeu: a venda foi gravada ou recusada, não está mais "no ar"
             if (!result.Succeeded)
             {
                 dialogs.ShowError(result.Error!);
@@ -494,7 +541,8 @@ public partial class CheckoutViewModel(
             // Mantém o carrinho e a mesma chave: o operador pode tentar de novo sem risco de duplicar.
             _outcomeUnknown = true;
             Log.Error(ex, "Falha ao finalizar venda {RequestId}", _clientRequestId);
-            dialogs.ShowError("Não foi possível concluir a venda (falha de comunicação com o banco).\nTente novamente com F10: a venda não será duplicada.");
+            dialogs.ShowError($"Não foi possível confirmar a venda com o servidor da loja.\n{ex.Message}\n\n" +
+                "Tente novamente com F10: a venda não será duplicada.");
             return;
         }
         finally
@@ -516,7 +564,7 @@ public partial class CheckoutViewModel(
     /// </summary>
     private async Task<NfceInfo?> IssueNfceAsync(SaleReceipt sale)
     {
-        if (!nfceSettings.Load().Enabled) return null;
+        if (!await runner.RunAsync<NfceConfigurationService, bool>(c => c.IsEnabledAsync(default))) return null;
         Result<NfceInfo> result;
         try
         {
@@ -738,7 +786,6 @@ public partial class CheckoutViewModel(
     {
         if (!CanOpenAdmin) { dialogs.ShowError("Seu usuário não tem acesso à retaguarda."); return; }
         var vm = adminFactory();
-        vm.AttachNfceStore(nfceSettings);
         vm.AttachTicketPrinter(tickets);
         var window = new AdminWindow(vm) { Owner = System.Windows.Application.Current.MainWindow };
         await vm.LoadAsync();

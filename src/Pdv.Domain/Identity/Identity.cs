@@ -12,9 +12,10 @@ public static class Permissions
     public const string ManageUsers = "users.manage";
     public const string ViewReports = "reports.view";
     public const string ManageCompany = "company.manage";
+    public const string ManageSystem = "system.manage";
 
     public static readonly IReadOnlyList<string> All =
-        [ApplyDiscount, CancelSale, ManageCash, ManageProducts, AdjustStock, ManageUsers, ViewReports, ManageCompany];
+        [ApplyDiscount, CancelSale, ManageCash, ManageProducts, AdjustStock, ManageUsers, ViewReports, ManageCompany, ManageSystem];
 }
 
 public class Role : Entity

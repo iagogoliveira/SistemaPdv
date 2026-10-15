@@ -23,9 +23,12 @@ Itens conhecidos que ficam fora das etapas em andamento e serão retomados antes
 - CSOSN 101/201/202/203/900 e CST 10/20/30/51/70/90; grupos IBS/CBS.
 - NF-e de entrada para devoluções de venda com NFC-e (a devolução da Etapa 4 é só operacional: estoque e caixa).
 
-**Infraestrutura (já previstos nas Etapas 5–7)**
-- Backup automático com cópia externa; senha do banco cifrada; serviço central para vários caixas.
-- Instalador compilado e testado em Windows limpo, com PostgreSQL embutido; atualização automática.
+**Infraestrutura (Etapas 6–7)**
+- Instalador compilado e testado em Windows limpo (o Inno Setup não está nesta máquina), com PostgreSQL embutido;
+  atualização automática de caixas e servidor juntos.
+- Sessões de usuário emitidas pelo servidor (hoje ele confia no ID do usuário enviado por um caixa conectado) e HTTPS
+  opcional entre caixa e servidor na rede da loja.
+- Teste em rede real com 3 computadores (o aceite foi feito com 3 caixas no mesmo computador).
 - Desempenho em telas pequenas (1366×768) e com catálogo grande (meta de busca < 300 ms).
 
 ## Etapa 1 — Migração para PostgreSQL  ✅ concluída
@@ -93,7 +96,7 @@ estoque mínimo com alerta; relatórios (vendas por dia, formas de pagamento, ma
 por operador, estoque abaixo do mínimo) com CSV e impressão A4; fechamento de caixa impresso. Aceite coberto por teste de
 integração (dia completo) e percorrido pela interface.
 
-## Etapa 5 — Vários caixas e robustez
+## Etapa 5 — Vários caixas e robustez  ✅ concluída
 
 - Serviço central local (ASP.NET Core) com autenticação dos terminais; terminais deixam de acessar o banco direto.
 - Controle de versão: terminais desatualizados não operam contra um banco mais novo.
@@ -102,6 +105,16 @@ integração (dia completo) e percorrido pela interface.
 - Testes de queda de rede/energia e reconexão.
 
 **Aceite:** 3 caixas em rede, um deles desligado à força no meio da venda, sem venda duplicada nem perdida.
+
+Feito: `Pdv.Server` (ASP.NET Core, serviço do Windows) é o único com acesso ao banco e ao certificado; caixas conectados
+por código e chave própria (hash no banco, DPAPI no caixa), revogáveis; um caixa não opera a gaveta de outro; mesma
+versão obrigatória e banco "mais novo" recusado; diário local da venda conferido no servidor pela chave de idempotência;
+backup diário com recuperação de horário perdido, retenção, segunda pasta, backup manual e restauração (com backup de
+segurança e caixas mantidos conectados); senha do banco, código de conexão e NFC-e cifrados com DPAPI; fila da NFC-e no
+servidor; instalador com tipo "computador principal" (serviço, firewall, ACL) e "somente caixa". Aceite coberto por
+testes do servidor (3 caixas simultâneos com reenvio, conexão cortada no envio, diário) e percorrido pela interface com
+3 caixas: caixa desligado com itens no carrinho e durante a finalização, diário de venda não enviada e já gravada,
+servidor desligado e religado — 7 vendas, 7 chaves, 7 números, nenhuma duplicada.
 
 ## Etapa 6 — Pagamentos integrados
 

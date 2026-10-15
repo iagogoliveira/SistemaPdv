@@ -23,7 +23,7 @@ public partial class AdminViewModel
     private async Task LoadPurchasesAsync()
     {
         if (!ShowProductsTab) return;
-        var suppliers = await Runner.RunAsync<SupplierService, IReadOnlyList<SupplierModel>>(s => s.ListAsync(includeInactive: true));
+        var suppliers = await Runner.RunAsync<SupplierService, IReadOnlyList<SupplierModel>>(s => s.ListAsync(null, true, default));
         var selected = SelectedSupplier?.Id;
         Suppliers.Clear();
         foreach (var s in suppliers) Suppliers.Add(s);

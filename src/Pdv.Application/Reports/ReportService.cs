@@ -56,7 +56,9 @@ public sealed record LowStockRow(Guid ProductId, string Name, string Unit, decim
 }
 
 public sealed record CashClosingReport(CashSessionRow Session, IReadOnlyList<PaymentMethodRow> SalesByMethod, int SalesCount,
-    int CancelledCount, decimal ReturnsInVoucher, IReadOnlyList<(DateTimeOffset At, string Type, decimal Amount, string? Reason, string User)> Movements);
+    int CancelledCount, decimal ReturnsInVoucher, IReadOnlyList<CashClosingMovement> Movements);
+
+public sealed record CashClosingMovement(DateTimeOffset At, string Type, decimal Amount, string? Reason, string User);
 
 /// <summary>Relatórios operacionais. Exigem a permissão "reports.view" (Supervisor e Administrador).</summary>
 public sealed class ReportService(IPdvDbContext db, PermissionChecker permissions)
@@ -168,7 +170,7 @@ public sealed class ReportService(IPdvDbContext db, PermissionChecker permission
         var userIds = session.Movements.Select(m => m.UserId).Distinct().ToList();
         var users = await db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
         var movements = session.Movements.OrderBy(m => m.OccurredAt)
-            .Select(m => (m.OccurredAt, MovementLabel(m.Type), m.SignedAmount, m.Reason, users.GetValueOrDefault(m.UserId, "?")))
+            .Select(m => new CashClosingMovement(m.OccurredAt, MovementLabel(m.Type), m.SignedAmount, m.Reason, users.GetValueOrDefault(m.UserId, "?")))
             .ToList();
         return new CashClosingReport(row, byMethod, salesCount, cancelled, voucherReturns, movements);
     }

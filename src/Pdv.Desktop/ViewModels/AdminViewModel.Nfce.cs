@@ -36,27 +36,28 @@ public partial class AdminViewModel
     public string CertificatePasswordInput { get; set; } = "";
     public string CscTokenInput { get; set; } = "";
 
-    private INfceSettingsStore? _nfceStore;
-
-    public void AttachNfceStore(INfceSettingsStore store) => _nfceStore = store;
+    /// <summary>Certificado escolhido neste computador, enviado ao servidor quando a configuração é salva.</summary>
+    private byte[]? _pendingCertificate;
+    private NfceConfigView? _nfceConfig;
 
     private async Task LoadNfceAsync()
     {
-        if (!CanManageCompany || _nfceStore is null) return;
-        var s = _nfceStore.Load();
+        if (!CanManageCompany) return;
+        var s = _nfceConfig = await Runner.RunAsync<NfceConfigurationService, NfceConfigView>(c => c.GetAsync(ActorId, default));
         NfceEnabled = s.Enabled;
         NfceEnvironment = Environments.First(e => e.Value == s.Environment);
         NfceSeries = s.Series.ToString(CultureInfo.InvariantCulture);
-        CertificatePath = s.CertificatePath;
+        _pendingCertificate = null;
+        CertificatePath = s.HasCertificate ? "Certificado instalado no servidor" : null;
         CscId = s.CscId ?? "";
-        HasCertificatePassword = !string.IsNullOrEmpty(s.CertificatePassword);
-        HasCscToken = !string.IsNullOrEmpty(s.CscToken);
+        HasCertificatePassword = s.HasCertificatePassword;
+        HasCscToken = s.HasCscToken;
         await LoadNfceDocumentsAsync();
     }
 
     private async Task LoadNfceDocumentsAsync()
     {
-        var list = await Runner.RunAsync<NfceService, IReadOnlyList<NfceInfo>>(s => s.ListRecentAsync());
+        var list = await Runner.RunAsync<NfceService, IReadOnlyList<NfceInfo>>(s => s.ListRecentAsync(100, default));
         var selected = SelectedNfce?.Info.DocumentId;
         NfceDocuments.Clear();
         foreach (var d in list) NfceDocuments.Add(new NfceRow(d));
@@ -75,49 +76,37 @@ public partial class AdminViewModel
     {
         var file = Dialogs.PickFile("Certificado digital A1", "Certificado A1 (*.pfx;*.p12)|*.pfx;*.p12");
         if (file is null) return;
-        CertificatePath = MachineNfceSettingsStore.ImportCertificate(file);
-        Dialogs.ShowInfo($"Certificado copiado para a pasta do sistema:\n{CertificatePath}\n\nInforme a senha e salve.");
+        var bytes = File.ReadAllBytes(file);
+        if (bytes.Length is 0 or > 100_000) { Dialogs.ShowError("Arquivo de certificado inválido."); return; }
+        _pendingCertificate = bytes;
+        CertificatePath = $"{Path.GetFileName(file)} (será enviado ao servidor ao salvar)";
+        Dialogs.ShowInfo("Certificado carregado. Informe a senha e salve: o arquivo fica guardado no servidor da loja.");
     }
 
     [RelayCommand]
     private async Task SaveNfceSettingsAsync()
     {
-        if (_nfceStore is null || !CanManageCompany) return;
+        if (!CanManageCompany) return;
         if (!int.TryParse(NfceSeries, NumberStyles.None, CultureInfo.InvariantCulture, out var series) || series is < 0 or > 999)
         {
             Dialogs.ShowError("Série inválida (0 a 999).");
             return;
         }
-        var current = _nfceStore.Load();
         var environment = NfceEnvironment?.Value ?? FiscalEnvironment.Homologation;
-        if (environment == FiscalEnvironment.Production && current.Environment != FiscalEnvironment.Production
+        if (environment == FiscalEnvironment.Production && _nfceConfig?.Environment != FiscalEnvironment.Production
             && !Dialogs.Confirm("Em PRODUÇÃO as notas têm valor fiscal e geram obrigações para a empresa.\n\nConfirma a mudança para produção?"))
             return;
 
-        var settings = current with
-        {
-            Enabled = NfceEnabled,
-            Environment = environment,
-            Series = series,
-            CertificatePath = CertificatePath,
-            CertificatePassword = string.IsNullOrEmpty(CertificatePasswordInput) ? current.CertificatePassword : CertificatePasswordInput,
-            CscId = string.IsNullOrWhiteSpace(CscId) ? null : CscId.Trim(),
-            CscToken = string.IsNullOrEmpty(CscTokenInput) ? current.CscToken : CscTokenInput.Trim(),
-        };
-        if (settings.Enabled && !settings.IsComplete)
-        {
-            Dialogs.ShowError("Para ativar a NFC-e informe o certificado (.pfx), a senha, o ID e o código CSC.");
-            return;
-        }
-        if (settings.CertificatePath is { } path && !File.Exists(path))
-        {
-            Dialogs.ShowError("O arquivo do certificado não foi encontrado.");
-            return;
-        }
-        _nfceStore.Save(settings);
+        var update = new NfceConfigUpdate(NfceEnabled, environment, series, _pendingCertificate,
+            string.IsNullOrEmpty(CertificatePasswordInput) ? null : CertificatePasswordInput,
+            string.IsNullOrWhiteSpace(CscId) ? null : CscId.Trim(),
+            string.IsNullOrEmpty(CscTokenInput) ? null : CscTokenInput);
+        var result = await Runner.RunAsync<NfceConfigurationService, Result<NfceConfigView>>(c => c.SaveAsync(ActorId, update, default));
+        if (!result.Succeeded) { Dialogs.ShowError(result.Error!); return; }
         CertificatePasswordInput = "";
         CscTokenInput = "";
-        Dialogs.ShowInfo(settings.Enabled ? "Configuração da NFC-e salva. As próximas vendas emitirão NFC-e." : "Configuração salva (NFC-e desativada).");
+        Dialogs.ShowInfo(result.Value!.Enabled ? "Configuração da NFC-e salva no servidor. As próximas vendas de todos os caixas emitirão NFC-e."
+            : "Configuração salva (NFC-e desativada).");
         await LoadNfceAsync();
     }
 

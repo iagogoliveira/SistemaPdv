@@ -109,7 +109,10 @@ internal sealed class TerminalConfiguration : IEntityTypeConfiguration<Terminal>
     {
         b.Property(x => x.Code).HasMaxLength(10);
         b.Property(x => x.MachineName).HasMaxLength(64);
+        b.Property(x => x.AccessKeyHash).HasMaxLength(64);
+        b.Property(x => x.AppVersion).HasMaxLength(20);
         b.HasIndex(x => x.MachineName).IsUnique();
+        b.HasIndex(x => x.AccessKeyHash).IsUnique().HasFilter("\"AccessKeyHash\" IS NOT NULL");
         b.HasIndex(x => new { x.StoreId, x.Code }).IsUnique();
         b.HasOne<Store>().WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Restrict);
     }

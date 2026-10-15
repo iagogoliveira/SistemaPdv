@@ -1,6 +1,7 @@
 # Sistema PDV
 
-Ponto de venda para Windows em **.NET 10 (LTS)**, com WPF, PostgreSQL e EF Core 10.
+Ponto de venda para Windows em **.NET 10 (LTS)**, com WPF, PostgreSQL e EF Core 10. Vários caixas em rede usam um
+servidor central da loja (ASP.NET Core) — os caixas não acessam o banco.
 Etapas até a operação em loja real: [docs/ROADMAP.md](docs/ROADMAP.md).
 Este repositório implementa o início do MVP descrito no planejamento do produto (V0.1 → V0.3).
 
@@ -11,6 +12,7 @@ Este repositório implementa o início do MVP descrito no planejamento do produt
 | Runtime / linguagem | .NET 10 LTS, C# 14 |
 | Interface | WPF + CommunityToolkit.Mvvm 8.4 |
 | Hospedagem / DI / config | Microsoft.Extensions.Hosting 10 (`appsettings.json`) |
+| Servidor da loja | ASP.NET Core 10 (Kestrel) como serviço do Windows |
 | Banco | PostgreSQL 17 (provedor Npgsql) |
 | Acesso a dados | Entity Framework Core 10 + migrações |
 | Logs técnicos | Serilog (arquivo diário em `%ProgramData%\SistemaPDV\logs`) |
@@ -24,15 +26,38 @@ src/
   Pdv.Domain           Entidades e regras de negócio puras (sem dependências)
   Pdv.Application      Casos de uso: login, caixa, finalização de venda, busca de produtos
   Pdv.Infrastructure   EF Core/PostgreSQL, migrações, hash de senha, backup/restauração (pg_dump)
-  Pdv.Desktop          App WPF (frente de caixa)
+  Pdv.Fiscal           NFC-e (DFe.NET): XML, assinatura, SEFAZ
+  Pdv.Server           Servidor da loja: único com acesso ao banco e ao certificado; backups; fila da NFC-e
+  Pdv.Client           Cliente HTTP do caixa, diário da venda e conexão (chave do caixa)
+  Pdv.Desktop          App WPF (frente de caixa e retaguarda)
 tests/
   Pdv.Domain.Tests          Totais, arredondamento, descontos, troco, caixa, estoque
   Pdv.Infrastructure.Tests  Banco real (PostgreSQL): idempotência, concorrência, atomicidade, backup
+  Pdv.Fiscal.Tests          Chave de acesso, XML e assinatura da NFC-e
+  Pdv.Server.Tests          Servidor em memória: conexão de caixas, 3 caixas simultâneos, quedas, backup/restauração
 ```
 
-Dependências: `Desktop → Application + Infrastructure`, `Infrastructure → Application → Domain`.
-Quando o serviço central local (multi-caixa, V0.4) for criado, ele substitui o acesso direto ao banco
-pelo `Desktop` sem mudar Domain/Application.
+Dependências: `Desktop → Client → Application → Domain`; `Server → Application + Infrastructure + Fiscal`.
+
+### Servidor da loja e caixas em rede
+
+- O caixa chama os serviços da aplicação no servidor (`POST /api/rpc/{Serviço}/{Método}`, argumentos em JSON).
+  No código continua escrito como chamada local: `runner.RunAsync<CashService, Result<X>>(c => c.OpenAsync(...))`.
+  Só os serviços listados em `RemoteApi.Services` são expostos.
+- **Conexão do caixa:** na primeira abertura o caixa pede o endereço do servidor e o **código de conexão**
+  (Retaguarda › Sistema, ou `SistemaPDV.Servidor.exe --codigo` no servidor). O servidor devolve uma chave própria do
+  caixa (256 bits; o banco guarda só o SHA-256; no caixa fica cifrada com DPAPI). 5 códigos errados bloqueiam o
+  endereço por 5 minutos. No próprio computador do servidor a conexão é direta. Caixas podem ser desconectados na
+  retaguarda.
+- Um caixa só opera a própria gaveta: parâmetros `terminalId` e comandos com `TerminalId` são conferidos com a chave.
+- **Versão:** caixa e servidor precisam estar na mesma versão (`X-Pdv-Version`); o servidor recusa iniciar com um
+  banco atualizado por versão mais nova.
+- **Queda de energia/rede:** a venda é gravada num diário local (`venda-em-andamento.json`, gravação atômica) antes de
+  ir ao servidor. Na volta, o caixa confere pela chave de idempotência: se a venda foi gravada, avisa; se não, oferece
+  concluir ou descartar. Sem servidor, o caixa mostra "Sem conexão com o servidor da loja" e segue quando ele volta.
+- O servidor transmite NFC-e pendentes a cada 2 minutos e faz o backup diário (ver abaixo).
+- Limitação conhecida: o servidor confia no ID do usuário enviado por um caixa conectado (como antes, quando o caixa
+  acessava o banco); sessões de usuário assinadas pelo servidor estão nas pendências.
 
 ## Regras de domínio já garantidas
 
@@ -65,14 +90,24 @@ psql -h localhost -U postgres -c "CREATE ROLE pdv LOGIN CREATEDB PASSWORD 'pdv_d
 dotnet test
 ```
 
+Suba o servidor da loja (em um terminal) e depois o caixa:
+
+```bash
+dotnet run --project src/Pdv.Server
+```
+
 ```bash
 dotnet run --project src/Pdv.Desktop
 ```
 
-`dotnet run` usa o ambiente `Development` (PostgreSQL local e produtos de demonstração, via
-`Properties/launchSettings.json`). Na primeira execução o banco `sistema_pdv` é criado/migrado, o computador
-é registrado como terminal `001` e a tela pede a criação do administrador. Os produtos de exemplo usam os
+O ambiente `Development` (via `Properties/launchSettings.json`) usa o PostgreSQL local, produtos de demonstração e a
+SEFAZ simulada. Na primeira execução o servidor cria/migra o banco `sistema_pdv`; o caixa pede o servidor
+(`localhost`), conecta-se como terminal `001` e pede a criação do administrador. Os produtos de exemplo usam os
 códigos `7891000000011`, `…028`, `…035`, `…042`, `…059`.
+
+Vários caixas no mesmo computador (testes/treinamento): `PDV_DATA_DIR` troca a pasta de dados do caixa e
+`Pdv__Terminal__Name` o nome do terminal. No servidor, `Pdv__Server__DataFolder`, `Pdv__Server__Port` e
+`Pdv__Server__LocalOnly=true` (escuta só em localhost).
 
 ### Atalhos do caixa
 
@@ -161,14 +196,29 @@ Comprovante **não fiscal** impresso pelo driver do Windows, em largura de bobin
 
 ### Configuração da máquina
 
-O programa fica em Arquivos de Programas (somente leitura); cada máquina tem seus ajustes em
-`%ProgramData%\SistemaPDV`:
+Os programas ficam em Arquivos de Programas (somente leitura). Caixa, em `%ProgramData%\SistemaPDV`:
 
-- `connection.json`: servidor, usuário e senha do PostgreSQL. Gravado pelo instalador; se o servidor não responder
-  ao abrir o sistema, a tela de conexão pede outro servidor e grava aqui (senha incorreta ou outros erros mostram a
-  mensagem real). A senha ainda fica em texto puro — proteção com DPAPI está na Etapa 5 do roadmap.
+- `connection.json`: endereço do servidor da loja (gravado pelo instalador) e a chave de acesso do caixa, cifrada com
+  DPAPI. Se o servidor não responder, o caixa pede outro endereço.
 - `appsettings.json` (opcional): demais ajustes, como a impressora (`{ "Pdv": { "Receipt": { "Printer": "..." } } }`).
+- `venda-em-andamento.json`: diário da venda em conclusão (some quando o servidor responde).
 - `logs\`: logs técnicos diários (30 dias), para o suporte.
+
+Servidor, em `%ProgramData%\SistemaPDV\Servidor` (só Administradores e o serviço):
+
+- `server.json`: conexão com o PostgreSQL e código de conexão de caixas. O instalador grava a senha em texto e o
+  servidor a **cifra com DPAPI** ao iniciar; o código também fica cifrado.
+- `nfce.json` e `certificado-a1.pfx`: NFC-e da loja (senha e CSC cifrados), configurados pela retaguarda de qualquer caixa.
+- `backup.json` e `backups\`: configuração e arquivos de backup (`pdv-AAAAMMDD-HHMMSS.backup`).
+- `logs\`: logs do servidor (60 dias).
+
+### Backup
+
+Retaguarda › Sistema: backup automático diário no horário escolhido (se o servidor estava desligado no horário, faz
+assim que ligar), retenção em dias (os 3 mais novos nunca são apagados) e **segunda cópia** numa pasta do servidor
+(pendrive, rede ou pasta sincronizada com a nuvem — a gravação é testada ao salvar). "Fazer backup agora" e
+"Restaurar selecionado" (digitando RESTAURAR): a restauração para os caixas por instantes, guarda antes o estado atual
+num backup de segurança, atualiza o esquema se o backup for de versão anterior e mantém os caixas conectados.
 
 Os testes de integração aceitam `PDV_TEST_PG` (ex.: `Host=servidor;Username=pdv;Password=...`). O teste de backup usa
 o `pg_dump` local; sem ele, usa o do contêiner `pdv-postgres` (`PDV_TEST_PG_CONTAINER`).
@@ -176,20 +226,25 @@ o `pg_dump` local; sem ele, usa o do contêiner `pdv-postgres` (`PDV_TEST_PG_CON
 ## Instalador
 
 ```bash
-powershell -ExecutionPolicy Bypass -File installer/build.ps1 -Version 0.2.0
+powershell -ExecutionPolicy Bypass -File installer/build.ps1 -Version 0.5.0
 ```
 
-O script publica o app **self-contained** para win-x64 (não exige .NET instalado no cliente) em
-`artifacts/publish` e compila `installer/SistemaPDV.iss` com o [Inno Setup 6](https://jrsoftware.org/isdl.php),
-gerando `artifacts/installer/SistemaPDV-Setup-<versão>.exe`. Use `-SkipInstaller` para só publicar.
+O script publica caixa e servidor **self-contained** para win-x64 (não exigem .NET instalado) em
+`artifacts/publish/caixa` e `artifacts/publish/servidor` e compila `installer/SistemaPDV.iss` com o
+[Inno Setup 6](https://jrsoftware.org/isdl.php), gerando `artifacts/installer/SistemaPDV-Setup-<versão>.exe`.
+Use `-SkipInstaller` para só publicar.
 
-O instalador pede o servidor PostgreSQL (`localhost` no computador principal; nome ou IP dele nos demais caixas),
-o usuário e a senha do banco; cria `%ProgramData%\SistemaPDV` com permissão de escrita para os usuários e mantém
-configuração e logs ao desinstalar.
+Tipos de instalação:
 
-Pré-requisito no computador principal: **PostgreSQL 17** instalado, com um usuário com permissão de criar o banco.
-Para caixas em rede: liberar a porta 5432 no firewall, `listen_addresses` e uma regra em `pg_hba.conf` para a rede
-da loja. A instalação silenciosa do PostgreSQL junto com o PDV está na Etapa 7 do roadmap.
+- **Computador principal:** servidor + caixa. Pede o usuário e a senha do PostgreSQL local, instala o serviço
+  `SistemaPDV.Servidor` (início automático, reinício em caso de falha), libera a porta TCP 5080 no firewall (redes
+  privada/domínio) e restringe a pasta do servidor a Administradores e SYSTEM. Numa atualização o serviço é parado
+  antes de trocar os arquivos.
+- **Somente caixa:** pede o nome ou IP do computador principal. Na primeira abertura o caixa pede o código de conexão.
+
+Pré-requisito no computador principal: **PostgreSQL 17** instalado, com o banco/usuário do sistema. Com o servidor
+central, o PostgreSQL não precisa mais ser aberto na rede (só o servidor da loja acessa). Caixa e servidor devem ser
+atualizados juntos (mesma versão). A instalação silenciosa do PostgreSQL junto com o PDV está na Etapa 7 do roadmap.
 
 ### Migrações
 
@@ -201,13 +256,16 @@ dotnet tool restore
 dotnet ef migrations add NomeDaMigracao --project src/Pdv.Infrastructure --output-dir Persistence/Migrations
 ```
 
-O app aplica migrações pendentes ao iniciar (`DatabaseInitializer`).
+O servidor aplica migrações pendentes ao iniciar (`DatabaseInitializer`).
 
 ## Situação do roadmap
 
 **V0.1 Fundação** — feito: camadas, migrações, empresa/loja/terminal iniciais, autenticação e perfis, logs,
-tratamento global de erros, backup/restauração (testado), cadastro de usuários, tela de conexão com o
-servidor, instalador versionado. Falta: tela de backup/restauração, cadastro dos dados da empresa na UI.
+tratamento global de erros, backup/restauração com tela e agendamento (Etapa 5), cadastro de usuários e da empresa,
+tela de conexão com o servidor, instalador versionado.
+
+**V0.4 Vários caixas (Etapa 5)** — feito: servidor central como serviço do Windows, conexão de caixas por código,
+controle de versão, diário da venda contra queda de energia, segredos cifrados com DPAPI, retaguarda › Sistema.
 
 **V0.2 Produtos e estoque** — feito: cadastro e edição de produtos (vários códigos de barras, categoria,
 custo, margem), ativação/desativação, entrada de mercadorias, ajuste por contagem com motivo, histórico de

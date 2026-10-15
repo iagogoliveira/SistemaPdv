@@ -1,3 +1,4 @@
+using Pdv.Client;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -15,12 +16,12 @@ using Pdv.Domain.Inventory;
 namespace Pdv.Desktop.ViewModels;
 
 /// <summary>Retaguarda: cadastro de produtos/estoque e de usuários. O backend revalida cada permissão.</summary>
-public partial class AdminViewModel(ScopedRunner runner, AppState state, IDialogService dialogs) : ObservableObject
+public partial class AdminViewModel(ServerRunner runner, AppState state, IDialogService dialogs) : ObservableObject
 {
     private Guid ActorId => state.User!.UserId;
 
     // Acesso para a outra parte da classe (AdminViewModel.Fiscal.cs).
-    private ScopedRunner Runner => runner;
+    private ServerRunner Runner => runner;
     private IDialogService Dialogs => dialogs;
 
     public bool CanManageProducts => state.User!.Can(Permissions.ManageProducts);
@@ -48,6 +49,7 @@ public partial class AdminViewModel(ScopedRunner runner, AppState state, IDialog
         await LoadFiscalAsync();
         await LoadPurchasesAsync();
         LoadReports();
+        await LoadSystemAsync();
     }
 
     partial void OnIncludeInactiveChanged(bool value) => SearchProductsCommand.Execute(null);
@@ -186,8 +188,8 @@ public partial class AdminViewModel(ScopedRunner runner, AppState state, IDialog
 
     private async Task LoadUsersAsync()
     {
-        var (users, roles) = await runner.RunAsync<UserAdminService, (IReadOnlyList<UserListItem>, IReadOnlyList<RoleListItem>)>(async s =>
-            (await s.ListAsync(), await s.ListRolesAsync()));
+        var users = await runner.RunAsync<UserAdminService, IReadOnlyList<UserListItem>>(s => s.ListAsync(default));
+        var roles = await runner.RunAsync<UserAdminService, IReadOnlyList<RoleListItem>>(s => s.ListRolesAsync(default));
         var selectedId = SelectedUser?.Id;
         Users.Clear();
         foreach (var u in users) Users.Add(u);

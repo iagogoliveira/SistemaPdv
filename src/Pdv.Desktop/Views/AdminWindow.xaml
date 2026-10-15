@@ -17,7 +17,7 @@
                 </Border>
                 <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="Retaguarda" Foreground="White" FontSize="20" FontWeight="Bold" FontFamily="{StaticResource DisplayFont}" />
-                    <TextBlock Text="Produtos, compras, relatórios, usuários e dados fiscais da loja" Foreground="#BFDBFE" FontSize="12" />
+                    <TextBlock Text="Produtos, compras, relatórios, usuários, dados fiscais e sistema da loja" Foreground="#BFDBFE" FontSize="12" />
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -611,7 +611,7 @@
                     <Border Style="{StaticResource Card}">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
-                                <TextBlock Text="Configuração deste computador" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
+                                <TextBlock Text="Configuração da loja (no servidor)" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
                                 <CheckBox Content="Emitir NFC-e nas vendas" IsChecked="{Binding NfceEnabled}" FontWeight="SemiBold" Margin="0,0,0,12" />
 
                                 <TextBlock Text="Ambiente" Style="{StaticResource Caption}" />
@@ -647,7 +647,7 @@
 
                                 <Border Background="{StaticResource BrandSoftBrush}" CornerRadius="8" Padding="12,10" Margin="0,4,0,12">
                                     <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource TextSecondaryBrush}"
-                                               Text="O CSC é gerado no portal da SEFAZ do seu estado (um para homologação e outro para produção). A senha do certificado e o CSC ficam cifrados neste computador." />
+                                               Text="O CSC é gerado no portal da SEFAZ do seu estado (um para homologação e outro para produção). O certificado, a senha e o CSC ficam guardados (cifrados) no servidor da loja e valem para todos os caixas." />
                                 </Border>
 
                                 <WrapPanel>
@@ -719,6 +719,117 @@
                         </DockPanel>
                     </Border>
                 </Grid>
+            </TabItem>
+            <!-- ===== Sistema ===== -->
+            <TabItem Visibility="{Binding CanManageSystem, Converter={StaticResource BoolToVisibility}}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:IconView Data="{StaticResource Icon.Server}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"
+                                     Width="18" Height="18" Margin="0,0,8,0" />
+                        <TextBlock Text="Sistema" />
+                    </StackPanel>
+                </TabItem.Header>
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding ServerSummary}" Foreground="{StaticResource MutedBrush}" Margin="4,0,0,12"
+                               TextTrimming="CharacterEllipsis" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Caixas conectados -->
+                        <Border Style="{StaticResource Card}">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="Caixas conectados ao servidor" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
+                                <Border DockPanel.Dock="Top" Background="{StaticResource BrandSoftBrush}" CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
+                                    <DockPanel>
+                                        <ui:IconButton DockPanel.Dock="Right" Icon="{StaticResource Icon.Undo}" Content="Gerar novo" Command="{Binding RegeneratePairingCodeCommand}"
+                                                       VerticalAlignment="Center" Margin="8,0,0,0" />
+                                        <StackPanel>
+                                            <TextBlock Text="Código para conectar um novo caixa" Style="{StaticResource Caption}" />
+                                            <TextBlock x:Name="PairingCodeText" Text="{Binding PairingCode}" FontSize="26" FontWeight="Bold" Foreground="{StaticResource BrandBrush}" />
+                                            <TextBlock Text="Instale o Sistema PDV no novo computador, informe o endereço deste servidor e digite este código." TextWrapping="Wrap"
+                                                       FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                                <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                                    <ui:IconButton Style="{StaticResource DangerIconButton}" Icon="{StaticResource Icon.Power}" Content="Desconectar caixa"
+                                                   Command="{Binding RevokeTerminalCommand}" Margin="0" />
+                                </WrapPanel>
+                                <DataGrid ItemsSource="{Binding Terminals}" SelectedItem="{Binding SelectedTerminal}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="CAIXA" Binding="{Binding Code}" Width="65" />
+                                        <DataGridTextColumn Header="COMPUTADOR" Binding="{Binding MachineName}" Width="*" />
+                                        <DataGridTextColumn Header="SITUAÇÃO" Binding="{Binding Status}" Width="105" />
+                                        <DataGridTextColumn Header="ÚLTIMO CONTATO" Binding="{Binding LastSeen}" Width="125" />
+                                        <DataGridTextColumn Header="VERSÃO" Binding="{Binding Version}" Width="75" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Backup -->
+                        <Border Grid.Column="2" Style="{StaticResource Card}">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="Backup do banco de dados" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
+                                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="110" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox Content="Backup automático diário" IsChecked="{Binding BackupEnabled}" FontWeight="SemiBold" VerticalAlignment="Bottom" Margin="0,0,0,10" />
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Horário" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding BackupTime, UpdateSourceTrigger=PropertyChanged}" MaxLength="5" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Manter (dias)" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding BackupRetentionDays, UpdateSourceTrigger=PropertyChanged}" MaxLength="4" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock DockPanel.Dock="Top" Text="Segunda cópia — pasta no computador do servidor (pendrive, rede ou pasta sincronizada com a nuvem)"
+                                           Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                                <DockPanel DockPanel.Dock="Top" Margin="0,4,0,8">
+                                    <ui:IconButton DockPanel.Dock="Right" Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Check}" Content="Salvar"
+                                                   Command="{Binding SaveBackupSettingsCommand}" Margin="8,0,0,0" />
+                                    <TextBox Text="{Binding BackupCopyFolder, UpdateSourceTrigger=PropertyChanged}" Tag="ex.: E:\Backup PDV ou \\NAS\pdv" />
+                                </DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="{Binding BackupStatusText}" TextWrapping="Wrap" Margin="0,0,0,10" FontWeight="SemiBold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding BackupHasError}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                                    <ui:IconButton Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Database}" Content="Fazer backup agora"
+                                                   Command="{Binding BackupNowCommand}" Margin="0,0,8,0" />
+                                    <ui:IconButton Style="{StaticResource DangerIconButton}" Icon="{StaticResource Icon.Undo}" Content="Restaurar selecionado"
+                                                   Command="{Binding RestoreBackupCommand}" Margin="0" />
+                                </WrapPanel>
+                                <DataGrid ItemsSource="{Binding Backups}" SelectedItem="{Binding SelectedBackup}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="DATA" Binding="{Binding When}" Width="135" />
+                                        <DataGridTextColumn Header="ARQUIVO" Binding="{Binding Name}" Width="*" />
+                                        <DataGridTextColumn Header="TAMANHO" Binding="{Binding SizeText}" Width="90" ElementStyle="{StaticResource NumericCell}" />
+                                        <DataGridTextColumn Header="2ª CÓPIA" Binding="{Binding Copy}" Width="75" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </DockPanel>
             </TabItem>
         </TabControl>
     </DockPanel>

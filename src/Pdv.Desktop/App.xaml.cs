@@ -1,20 +1,18 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Markup;
-using System.Net.Sockets;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Pdv.Application;
-using Pdv.Application.Fiscal;
+using Pdv.Application.Maintenance;
+using Pdv.Application.Remote;
+using Pdv.Application.Terminals;
+using Pdv.Client;
 using Pdv.Desktop.Services;
 using Pdv.Desktop.ViewModels;
 using Pdv.Desktop.Views;
-using Pdv.Fiscal;
-using Pdv.Infrastructure;
-using Pdv.Infrastructure.Persistence;
+using Pdv.Domain.Common;
 using Serilog;
 
 namespace Pdv.Desktop;
@@ -31,40 +29,39 @@ public partial class App : System.Windows.Application
 
         DispatcherUnhandledException += (_, args) =>
         {
-            Log.Error(args.Exception, "Erro não tratado na interface");
-            MessageBox.Show($"Ocorreu um erro inesperado:\n{args.Exception.Message}\n\nDetalhes foram gravados no log.",
-                "Sistema PDV", MessageBoxButton.OK, MessageBoxImage.Error);
+            // Falhas de comunicação e regras de negócio já vêm com mensagem pronta para o operador.
+            var friendly = args.Exception is ServerException or DomainException;
+            if (friendly) Log.Warning("{Message}", args.Exception.Message);
+            else Log.Error(args.Exception, "Erro não tratado na interface");
+            ShowMessage(friendly ? args.Exception.Message
+                : $"Ocorreu um erro inesperado:\n{args.Exception.Message}\n\nDetalhes foram gravados no log.");
             args.Handled = true;
         };
 
         try
         {
-            _host = BuildHost(e.Args);
-            await _host.StartAsync();
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile(LocalSettings.SettingsFilePath, optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+            var machineName = configuration["Pdv:Terminal:Name"] is { Length: > 0 } name ? name : Environment.MachineName;
 
-            var services = _host.Services;
-            var state = services.GetRequiredService<AppState>();
-            var runner = services.GetRequiredService<ScopedRunner>();
-
-            try
+            var connection = await ConnectAsync(new TerminalConnectionStore(LocalSettings.Folder), machineName);
+            if (connection is null)
             {
-                state.Terminal = await runner.RunAsync<DatabaseInitializer, Domain.Stores.Terminal>(async init =>
-                {
-                    await init.InitializeAsync();
-                    return await init.EnsureTerminalAsync(Environment.MachineName);
-                });
-            }
-            catch (Exception ex) when (IsServerUnreachable(ex))
-            {
-                // Só oferece trocar o servidor quando ele não respondeu. Outros erros de banco
-                // (senha, permissão, migração) seguem para a mensagem de erro real abaixo.
-                Log.Error(ex, "Falha ao conectar ao PostgreSQL");
-                if (AskForServer(services.GetRequiredService<IConfiguration>().GetConnectionString("Pdv"), ex)) Restart();
-                else Shutdown(1);
+                Shutdown(1);
                 return;
             }
-            Log.Information("PDV {Version} iniciado no terminal {Terminal} ({Machine})",
-                typeof(App).Assembly.GetName().Version, state.Terminal.Code, Environment.MachineName);
+
+            _host = BuildHost(e.Args, connection.Value.Client);
+            await _host.StartAsync();
+            var services = _host.Services;
+            var state = services.GetRequiredService<AppState>();
+            state.Terminal = connection.Value.Terminal;
+            Log.Information("PDV {Version} iniciado no terminal {Terminal} ({Machine}), servidor {Server}",
+                RemoteApi.Version, state.Terminal.Code, state.Terminal.MachineName, connection.Value.Client.BaseAddress);
 
             var login = new LoginWindow(services.GetRequiredService<LoginViewModel>());
             if (login.ShowDialog() != true)
@@ -73,8 +70,8 @@ public partial class App : System.Windows.Application
                 return;
             }
 
-            if (services.GetRequiredService<IConfiguration>().GetValue<bool>("Pdv:SeedDemoData"))
-                await runner.RunAsync<DatabaseInitializer>(init => init.SeedDemoDataAsync(state.User!.UserId));
+            // O servidor só cria produtos de demonstração quando configurado para isso.
+            await services.GetRequiredService<ServerRunner>().RunAsync<IDemoDataSeeder>(s => s.SeedAsync(state.User!.UserId, default));
 
             var main = new MainWindow(services.GetRequiredService<CheckoutViewModel>());
             MainWindow = main;
@@ -84,8 +81,7 @@ public partial class App : System.Windows.Application
         catch (Exception ex)
         {
             Log.Fatal(ex, "Falha ao iniciar");
-            MessageBox.Show($"Não foi possível iniciar o sistema:\n{ex.Message}", "Sistema PDV",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            ShowMessage($"Não foi possível iniciar o sistema:\n{ex.Message}");
             Shutdown(1);
         }
     }
@@ -101,68 +97,144 @@ public partial class App : System.Windows.Application
         base.OnExit(e);
     }
 
-    /// <summary>Sem conexão com o banco: permite informar o servidor da loja e grava na configuração da máquina.</summary>
-    private static bool AskForServer(string? currentConnectionString, Exception error)
+    /// <summary>
+    /// Encontra o servidor da loja, confere a versão e garante que este computador está conectado (chave de acesso).
+    /// Na primeira vez pede o endereço do servidor e o código de conexão mostrado na retaguarda.
+    /// </summary>
+    private static async Task<(PdvServerClient Client, TerminalInfo Terminal)?> ConnectAsync(TerminalConnectionStore store, string machineName)
     {
-        var dialog = new InputDialog("Conexão com o banco de dados",
-            $"O servidor do banco de dados não respondeu.\n{Innermost(error).Message}\n\n" +
-            "Informe o computador onde está o PostgreSQL (ex.: SERVIDOR ou 192.168.0.10; localhost neste computador):",
-            LocalSettings.CurrentServer(currentConnectionString) ?? "localhost");
-        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.Value)) return false;
+        var (address, key) = store.Load();
+        string? problem = null;
+        while (true)
+        {
+            if (address is null || problem is not null)
+            {
+                address = Prompt("Servidor da loja",
+                    (problem is null ? "" : problem + "\n\n") +
+                    "Informe o computador onde está o servidor do Sistema PDV (ex.: SERVIDOR ou 192.168.0.10; localhost neste computador):",
+                    address ?? "localhost");
+                if (string.IsNullOrWhiteSpace(address)) return null;
+                problem = null;
+            }
 
-        LocalSettings.SaveConnectionString(LocalSettings.WithServer(currentConnectionString, dialog.Value));
-        Log.Information("Servidor do banco alterado para {Server}", dialog.Value);
-        return true;
+            PdvServerClient client;
+            try
+            {
+                client = new PdvServerClient(PdvServerClient.CreateHttpClient(PdvServerClient.ParseAddress(address))) { AccessKey = key };
+            }
+            catch (UriFormatException)
+            {
+                problem = $"Endereço inválido: {address}";
+                continue;
+            }
+
+            try
+            {
+                var health = await client.GetHealthAsync();
+                if (health.Version != RemoteApi.Version)
+                {
+                    ShowMessage($"O servidor da loja ({health.MachineName}) está na versão {health.Version} e este caixa na {RemoteApi.Version}.\n\n" +
+                        "Instale neste computador a mesma versão do servidor.");
+                    return null;
+                }
+
+                if (key is not null)
+                {
+                    try
+                    {
+                        var terminal = await client.GetCurrentTerminalAsync();
+                        store.Save(address, key);
+                        return (client, terminal);
+                    }
+                    catch (TerminalNotPairedException ex)
+                    {
+                        Log.Warning("Chave do caixa recusada pelo servidor: {Message}", ex.Message);
+                        key = client.AccessKey = null;
+                    }
+                }
+
+                var pair = await PairAsync(client, address, machineName);
+                if (pair is null) return null;
+                store.Save(address, pair.AccessKey);
+                client.AccessKey = pair.AccessKey;
+                Log.Information("Caixa conectado ao servidor {Server} como {Code}", address, pair.Terminal.Code);
+                return (client, pair.Terminal);
+            }
+            catch (ServerUnavailableException ex)
+            {
+                Log.Warning("Servidor {Address} indisponível: {Message}", address, ex.Message);
+                problem = ex.Message;
+            }
+            catch (VersionMismatchException ex)
+            {
+                ShowMessage(ex.Message);
+                return null;
+            }
+        }
     }
 
-    /// <summary>Servidor desligado, nome errado, porta bloqueada ou sem resposta (não inclui senha incorreta).</summary>
-    private static bool IsServerUnreachable(Exception ex)
+    /// <summary>No próprio computador do servidor a conexão é direta; nos demais pede o código de conexão.</summary>
+    private static async Task<PairResponse?> PairAsync(PdvServerClient client, string address, string machineName)
     {
-        for (Exception? e = ex; e is not null; e = e.InnerException)
-            if (e is SocketException or TimeoutException) return true;
-        return false;
+        string? code = null;
+        var tryWithoutCode = IsLocal(address);
+        while (true)
+        {
+            if (!tryWithoutCode)
+            {
+                code = Prompt("Conectar este caixa",
+                    $"Este computador ({machineName}) ainda não está conectado ao servidor da loja.\n\n" +
+                    "Informe o código de conexão, mostrado no servidor em Retaguarda › Sistema:", "");
+                if (code is null) return null;
+            }
+            try
+            {
+                return await client.PairAsync(machineName, code);
+            }
+            catch (TerminalNotPairedException ex)
+            {
+                if (!tryWithoutCode) ShowMessage(ex.Message);
+                tryWithoutCode = false;
+            }
+            catch (DomainException ex)
+            {
+                ShowMessage(ex.Message);
+                return null;
+            }
+        }
     }
 
-    private static Exception Innermost(Exception ex)
+    private static bool IsLocal(string address)
     {
-        while (ex.InnerException is not null) ex = ex.InnerException;
-        return ex;
+        var host = PdvServerClient.ParseAddress(address).Host;
+        return host is "localhost" or "127.0.0.1" or "[::1]" || string.Equals(host, Environment.MachineName, StringComparison.OrdinalIgnoreCase);
     }
 
-    private void Restart()
+    private static string? Prompt(string title, string message, string initial)
     {
-        Process.Start(new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false });
-        Shutdown();
+        var dialog = new InputDialog(title, message, initial);
+        return dialog.ShowDialog() == true ? dialog.Value.Trim() : null;
     }
 
-    private static IHost BuildHost(string[] args)
+    private static void ShowMessage(string message) => new MessageDialog(message, isError: true).ShowDialog();
+
+    private static IHost BuildHost(string[] args, PdvServerClient client)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             Args = args,
             ContentRootPath = AppContext.BaseDirectory,
         });
-        builder.Configuration
-            .AddJsonFile(LocalSettings.SettingsFilePath, optional: true, reloadOnChange: false)
-            .AddJsonFile(LocalSettings.ConnectionFilePath, optional: true, reloadOnChange: false);
-
-        var connectionString = builder.Configuration.GetConnectionString("Pdv")
-            ?? throw new InvalidOperationException("ConnectionStrings:Pdv não configurada.");
+        builder.Configuration.AddJsonFile(LocalSettings.SettingsFilePath, optional: true, reloadOnChange: false);
 
         builder.Services.AddSerilog();
-        builder.Services.AddApplication().AddInfrastructure(connectionString);
+        builder.Services.AddSingleton(client);
+        builder.Services.AddSingleton<ServerRunner>();
+        builder.Services.AddSingleton(new SaleJournal(LocalSettings.Folder));
         builder.Services.AddSingleton<AppState>();
-        builder.Services.AddSingleton<ScopedRunner>();
         builder.Services.AddSingleton<ReceiptPrinter>();
         builder.Services.AddSingleton<TicketPrinter>();
         builder.Services.AddSingleton<Func<LoginViewModel>>(sp => sp.GetRequiredService<LoginViewModel>);
-        // Desenvolvimento/treinamento: SEFAZ simulada (XML e assinatura reais, nada é enviado; só homologação).
-        if (builder.Configuration.GetValue<bool>("Pdv:Fiscal:Simulator"))
-            builder.Services.AddSingleton<INfceGateway>(_ => new SimulatedNfceGateway(new ZeusNfceGateway()));
-        else
-            builder.Services.AddSingleton<INfceGateway, ZeusNfceGateway>();
-        builder.Services.AddSingleton<INfceSettingsStore>(_ =>
-            new MachineNfceSettingsStore(builder.Configuration["Pdv:Fiscal:SettingsFile"]));
         builder.Services.AddSingleton<IDialogService, DialogService>();
         builder.Services.AddSingleton<SupervisorAuthorizer>();
         builder.Services.AddTransient<LoginViewModel>();
@@ -188,7 +260,6 @@ public partial class App : System.Windows.Application
         // Logs técnicos ficam fora da pasta do programa para que o suporte possa exportá-los.
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Information()
-            .MinimumLevel.Override("Microsoft.EntityFrameworkCore", Serilog.Events.LogEventLevel.Warning)
             .Enrich.FromLogContext()
             .WriteTo.File(Path.Combine(LocalSettings.Folder, "logs", "pdv-.log"), rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 30, formatProvider: CultureInfo.InvariantCulture)

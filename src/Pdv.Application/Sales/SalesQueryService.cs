@@ -55,6 +55,14 @@ public sealed class SalesQueryService(IPdvDbContext db)
                 (s, u) => new SaleListItem(s.Id, s.Number, s.CompletedAt, s.Total, s.Status, u.DisplayName))
             .ToListAsync(ct);
 
+    /// <summary>Venda gravada com esta chave de idempotência (para o caixa saber se uma venda interrompida chegou ao servidor).</summary>
+    public async Task<SaleListItem?> FindByRequestAsync(Guid clientRequestId, CancellationToken ct = default) =>
+        await db.Sales.AsNoTracking()
+            .Where(s => s.ClientRequestId == clientRequestId && s.Status != SaleStatus.Draft)
+            .Join(db.Users, s => s.OperatorUserId, u => u.Id,
+                (s, u) => new SaleListItem(s.Id, s.Number, s.CompletedAt, s.Total, s.Status, u.DisplayName))
+            .SingleOrDefaultAsync(ct);
+
     public async Task<ReceiptData?> GetReceiptAsync(Guid saleId, CancellationToken ct = default)
     {
         var sale = await db.Sales.AsNoTracking().Include(s => s.Items).Include(s => s.Payments)

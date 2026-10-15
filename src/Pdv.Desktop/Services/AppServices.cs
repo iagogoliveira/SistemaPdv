@@ -1,46 +1,27 @@
+using Pdv.Client;
 using System.Collections;
 using System.Windows;
-using Microsoft.Extensions.DependencyInjection;
 using Pdv.Application;
 using Pdv.Application.Fiscal;
 using Pdv.Application.Identity;
 using Pdv.Application.Sales;
 using Pdv.Desktop.Views;
-using Pdv.Domain.Stores;
+using Pdv.Application.Terminals;
 
 namespace Pdv.Desktop.Services;
 
-/// <summary>Estado da sessão do caixa: terminal identificado e usuário logado.</summary>
+/// <summary>Estado da sessão do caixa: terminal identificado pelo servidor e usuário logado.</summary>
 public sealed class AppState
 {
-    public Terminal Terminal { get; set; } = null!;
+    public TerminalInfo Terminal { get; set; } = null!;
     public UserSession? User { get; set; }
-}
-
-/// <summary>
-/// Cria um escopo de DI por operação: cada ação usa um DbContext novo e curto,
-/// evitando estado rastreado acumulado ao longo do turno do caixa.
-/// </summary>
-public sealed class ScopedRunner(IServiceScopeFactory scopes)
-{
-    public async Task<TResult> RunAsync<TService, TResult>(Func<TService, Task<TResult>> action) where TService : notnull
-    {
-        await using var scope = scopes.CreateAsyncScope();
-        return await action(scope.ServiceProvider.GetRequiredService<TService>());
-    }
-
-    public async Task RunAsync<TService>(Func<TService, Task> action) where TService : notnull
-    {
-        await using var scope = scopes.CreateAsyncScope();
-        await action(scope.ServiceProvider.GetRequiredService<TService>());
-    }
 }
 
 /// <summary>
 /// Libera operações restritas: usa o próprio operador se ele tiver a permissão; caso contrário,
 /// pede usuário e senha de um supervisor. A permissão é validada de novo no backend.
 /// </summary>
-public sealed class SupervisorAuthorizer(ScopedRunner runner, AppState state, IDialogService dialogs)
+public sealed class SupervisorAuthorizer(ServerRunner runner, AppState state, IDialogService dialogs)
 {
     public async Task<Guid?> AuthorizeAsync(string permission, string action)
     {

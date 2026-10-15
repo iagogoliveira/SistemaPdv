@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Pdv.Application.Catalog;
@@ -71,6 +71,8 @@ public sealed class InMemoryNfceSettings : INfceSettingsStore
 
     public NfceSettings Load() => Current;
     public void Save(NfceSettings settings) => Current = settings;
+    public byte[]? Certificate { get; private set; }
+    public string ImportCertificate(byte[] pfx) { Certificate = pfx; return "importado.pfx"; }
 }
 
 /// <summary>Banco próprio, empresa configurada e produtos com NCM, para os testes de emissão.</summary>

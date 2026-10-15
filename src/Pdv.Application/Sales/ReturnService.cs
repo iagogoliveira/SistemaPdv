@@ -21,7 +21,9 @@ public sealed record CreateReturnCommand(Guid SaleId, IReadOnlyDictionary<int, d
     Guid AuthorizedByUserId, Guid TerminalId);
 
 public sealed record ReturnReceipt(Guid ReturnId, long SaleNumber, decimal Total, RefundMethod Method, string? VoucherCode,
-    DateTimeOffset? VoucherExpiresAt, IReadOnlyList<(string Description, decimal Quantity, decimal Amount)> Items);
+    DateTimeOffset? VoucherExpiresAt, IReadOnlyList<ReturnReceiptLine> Items);
+
+public sealed record ReturnReceiptLine(string Description, decimal Quantity, decimal Amount);
 
 public sealed record VoucherInfo(string Code, decimal Amount, decimal Balance, DateTimeOffset ExpiresAt);
 
@@ -81,7 +83,7 @@ public sealed class ReturnService(IPdvDbContext db, PermissionChecker permission
             await db.SaveChangesAsync(ct);
 
             return Result<ReturnReceipt>.Ok(new ReturnReceipt(saleReturn.Id, sale.Number, saleReturn.Total, saleReturn.RefundMethod,
-                voucher?.Code, voucher?.ExpiresAt, saleReturn.Items.Select(i => (i.Description, i.Quantity, i.RefundAmount)).ToList()));
+                voucher?.Code, voucher?.ExpiresAt, saleReturn.Items.Select(i => new ReturnReceiptLine(i.Description, i.Quantity, i.RefundAmount)).ToList()));
         }
         catch (DomainException ex)
         {

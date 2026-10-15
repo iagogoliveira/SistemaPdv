@@ -2,8 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Pdv.Application\Pdv.Application.csproj" />
-    <ProjectReference Include="..\Pdv.Infrastructure\Pdv.Infrastructure.csproj" />
-    <ProjectReference Include="..\Pdv.Fiscal\Pdv.Fiscal.csproj" />
+    <ProjectReference Include="..\Pdv.Client\Pdv.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>

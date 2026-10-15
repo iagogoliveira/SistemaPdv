@@ -13,6 +13,7 @@ public sealed class DatabaseInitializer(PdvDbContext db, TimeProvider clock)
     /// <summary>Aplica migrações pendentes e garante os dados mínimos (perfis, empresa, loja).</summary>
     public async Task InitializeAsync(CancellationToken ct = default)
     {
+        await EnsureNotNewerAsync(ct);
         await db.Database.MigrateAsync(ct);
 
         if (!await db.Roles.AnyAsync(ct))
@@ -62,6 +63,19 @@ public sealed class DatabaseInitializer(PdvDbContext db, TimeProvider clock)
         }
     }
 
+    /// <summary>
+    /// Um banco já atualizado por uma versão mais nova do sistema não pode ser usado por esta versão:
+    /// gravaria dados sem as regras novas. Atualize o servidor.
+    /// </summary>
+    public async Task EnsureNotNewerAsync(CancellationToken ct = default)
+    {
+        var applied = await db.Database.GetAppliedMigrationsAsync(ct);
+        var unknown = applied.Except(db.Database.GetMigrations()).ToList();
+        if (unknown.Count > 0)
+            throw new DatabaseNewerThanAppException(
+                $"O banco de dados foi atualizado por uma versão mais nova do Sistema PDV ({unknown[^1]}). Instale a versão mais recente.");
+    }
+
     public const string SimplesProfileName = "Revenda — Simples Nacional (CSOSN 102)";
 
     /// <summary>Identifica o caixa pelo nome do computador, registrando-o na primeira execução.</summary>
@@ -106,3 +120,5 @@ public sealed class DatabaseInitializer(PdvDbContext db, TimeProvider clock)
         await db.SaveChangesAsync(ct);
     }
 }
+
+public sealed class DatabaseNewerThanAppException(string message) : Exception(message);

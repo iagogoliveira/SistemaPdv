@@ -6,6 +6,7 @@ using Pdv.Application.Purchases;
 using Pdv.Application.Reports;
 using Pdv.Application.Identity;
 using Pdv.Application.Sales;
+using Pdv.Application.Terminals;
 
 namespace Pdv.Application;
 
@@ -22,6 +23,9 @@ public static class DependencyInjection
         services.AddScoped<CompanySettingsService>();
         services.AddScoped<TaxProfileService>();
         services.AddScoped<NfceService>();
+        services.AddScoped<NfceConfigurationService>();
+        services.AddScoped<TerminalRegistry>();
+        services.AddScoped<TerminalAdminService>();
         services.AddScoped<SupplierService>();
         services.AddScoped<PurchaseService>();
         services.AddScoped<ReturnService>();

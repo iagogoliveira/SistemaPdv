@@ -1145,6 +1145,14 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AccessKeyHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("AppVersion")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -1153,15 +1161,25 @@ namespace Pdv.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTimeOffset?>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("MachineName")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<DateTimeOffset?>("PairedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AccessKeyHash")
+                        .IsUnique()
+                        .HasFilter("\"AccessKeyHash\" IS NOT NULL");
 
                     b.HasIndex("MachineName")
                         .IsUnique();
