@@ -16,9 +16,39 @@ public partial class AdminWindow : Window
         InitializeComponent();
         DataContext = _viewModel = viewModel;
         viewModel.PropertyChanged += OnViewModelChanged;
+        viewModel.NavigateRequested += (_, tab) => SelectTab(tab);
         // Abre na primeira aba que o usuário pode ver.
         Loaded += (_, _) => Tabs.SelectedItem = Tabs.Items.OfType<System.Windows.Controls.TabItem>()
             .FirstOrDefault(t => t.Visibility == Visibility.Visible);
+    }
+
+    /// <summary>Seleciona a aba pelo texto do cabeçalho (usado pelo assistente de implantação).</summary>
+    private void SelectTab(string header)
+    {
+        foreach (var item in Tabs.Items.OfType<TabItem>())
+        {
+            if (item.Visibility == Visibility.Visible && HeaderText(item).Contains(header, StringComparison.OrdinalIgnoreCase))
+            {
+                Tabs.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private static string HeaderText(TabItem item) => item.Header switch
+    {
+        string text => text,
+        Panel panel => string.Join(" ", panel.Children.OfType<TextBlock>().Select(t => t.Text)),
+        _ => "",
+    };
+
+    /// <summary>Abre no assistente enquanto houver pendências; com a loja pronta, abre na primeira aba de trabalho.</summary>
+    public void SelectStartTab()
+    {
+        if (_viewModel.SetupComplete || !_viewModel.ShowSetupTab)
+            Tabs.SelectedItem = Tabs.Items.OfType<TabItem>().FirstOrDefault(t => t != SetupTab && t.Visibility == Visibility.Visible);
+        else
+            Tabs.SelectedItem = SetupTab;
     }
 
     /// <summary>Cada relatório tem colunas próprias: a grade é remontada quando o relatório muda.</summary>

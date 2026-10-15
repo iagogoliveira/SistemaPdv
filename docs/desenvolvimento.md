@@ -48,8 +48,8 @@ sem ele, o do contêiner `pdv-postgres` (`PDV_TEST_PG_CONTAINER`).
 |---|---|
 | `Pdv.Domain.Tests` | Regras puras |
 | `Pdv.Infrastructure.Tests` | Serviços contra PostgreSQL (inclui o "dia completo de loja" da Etapa 4) |
-| `Pdv.Fiscal.Tests` | Chave de acesso, XML, assinatura |
-| `Pdv.Server.Tests` | Servidor em memória (TestServer) + cliente real: pareamento, versões, isolamento entre caixas, idempotência pela rede, 3 caixas simultâneos, contrato remoto, backup/restauração, DPAPI; TEF e pendências |
+| `Pdv.Fiscal.Tests` | Chave de acesso, XML, assinatura, validação pelos XSD oficiais, `vTotTrib` |
+| `Pdv.Server.Tests` | Servidor em memória (TestServer) + cliente real: pareamento, versões, isolamento entre caixas, idempotência pela rede, 3 caixas simultâneos, contrato remoto, backup/restauração, DPAPI; TEF e pendências; assistente de implantação |
 
 Testes de interface (UI Automation) são executados manualmente a cada etapa; capturam só as janelas do PDV e usam banco
 descartável.

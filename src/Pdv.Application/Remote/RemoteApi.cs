@@ -37,10 +37,10 @@ public static class RemoteApi
     [
         typeof(AuthenticationService), typeof(UserAdminService), typeof(ProductAdminService), typeof(ProductLookupService),
         typeof(SalesQueryService), typeof(CompanySettingsService), typeof(TaxProfileService), typeof(NfceService),
-        typeof(NfceConfigurationService), typeof(SupplierService), typeof(PurchaseService), typeof(ReturnService),
+        typeof(NfceConfigurationService), typeof(TaxApproximationService), typeof(SupplierService), typeof(PurchaseService), typeof(ReturnService),
         typeof(ReportService), typeof(CashService), typeof(CheckoutService), typeof(TerminalAdminService),
         typeof(PixService), typeof(PixConfigurationService), typeof(LicenseService),
-        typeof(IBackupManager), typeof(IServerAdmin), typeof(IDemoDataSeeder),
+        typeof(IBackupManager), typeof(IServerAdmin), typeof(IDemoDataSeeder), typeof(ISetupAssistant),
     ];
 
     public static JsonSerializerOptions Json { get; } = new(JsonSerializerDefaults.Web)

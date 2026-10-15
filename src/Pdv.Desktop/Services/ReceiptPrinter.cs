@@ -146,6 +146,12 @@ public sealed class ReceiptPrinter(IConfiguration configuration)
         }
         if (r.Change > 0) Pair("Troco", r.Change.ToString("N2", PtBr), bold: true);
         Line();
+        // Lei 12.741/2012: valor aproximado dos tributos (tabela IBPT).
+        if (r.ApproximateTaxes is { } taxes)
+        {
+            Add(taxes);
+            Line();
+        }
 
         if (isDanfe)
         {

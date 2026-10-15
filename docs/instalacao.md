@@ -44,6 +44,13 @@ No computador principal o instalador também:
 Na primeira abertura de cada caixa, informe o código de conexão (Retaguarda › Sistema no principal, ou
 `"C:\Program Files\SistemaPDV\Servidor\SistemaPDV.Servidor.exe" --codigo` executado como administrador).
 
+## Implantação na loja
+
+Depois de instalar, entre como administrador e siga a aba **Retaguarda › Implantação**: ela mostra, na ordem, o que
+falta (dados da empresa, perfis tributários conferidos pelo contador, NCM dos produtos, tabela IBPT da UF, certificado
+A1 e senha, CSC, emissão ligada, teste da SEFAZ, operadores, caixas conectados, licença e backup com cópia externa).
+Comece em homologação; passe para produção só com todos os itens prontos e uma nota de teste autorizada.
+
 ## Pagamentos integrados
 
 - **Pix:** o banco/PSP da loja fornece client ID, client secret, certificado (mTLS) e os endereços da API Pix e do

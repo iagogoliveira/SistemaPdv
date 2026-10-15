@@ -51,6 +51,7 @@ public partial class AdminViewModel(ServerRunner runner, AppState state, IDialog
         LoadReports();
         await LoadPaymentsAsync();
         await LoadSystemAsync();
+        await LoadSetupAsync();
     }
 
     partial void OnIncludeInactiveChanged(bool value) => SearchProductsCommand.Execute(null);

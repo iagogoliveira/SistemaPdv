@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Cryptography.Xml;
 using System.Xml;
@@ -81,7 +81,7 @@ public sealed class ZeusNfceGatewayTests : IDisposable
 
         // Regra da homologação: 1º item e destinatário com o aviso de "sem valor fiscal".
         Assert.Equal(ZeusNfceGateway.HomologationText, doc.SelectSingleNode("//n:det[@nItem='1']/n:prod/n:xProd", ns)!.InnerText);
-        Assert.Equal(ZeusNfceGateway.HomologationText, doc.SelectSingleNode("//n:dest/n:xNome", ns)!.InnerText);
+        Assert.Equal(ZeusNfceGateway.HomologationCustomerText, doc.SelectSingleNode("//n:dest/n:xNome", ns)!.InnerText);
         Assert.Equal("52998224725", doc.SelectSingleNode("//n:dest/n:CPF", ns)!.InnerText);
 
         // GTIN válido vai no cEAN; código interno vai como "SEM GTIN".
@@ -106,6 +106,27 @@ public sealed class ZeusNfceGatewayTests : IDisposable
         Assert.StartsWith("http", signed.QrCodeUrl, StringComparison.OrdinalIgnoreCase);
         Assert.StartsWith("http", signed.ConsultationUrl, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(signed.QrCodeUrl, doc.SelectSingleNode("//n:infNFeSupl/n:qrCode", ns)!.InnerText);
+    }
+
+    [Fact]
+    public void Approximate_taxes_go_to_items_and_total()
+    {
+        var draft = Draft();
+        draft = draft with { Items = [draft.Items[0] with { ApproximateTax = 9.39m }, draft.Items[1] with { ApproximateTax = 0.70m }] };
+        var doc = Load(_gateway.BuildAndSign(draft, _settings).Xml);
+        var ns = Ns(doc);
+        Assert.Equal("9.39", doc.SelectSingleNode("//n:det[@nItem='1']/n:imposto/n:vTotTrib", ns)!.InnerText);
+        Assert.Equal("10.09", doc.SelectSingleNode("//n:ICMSTot/n:vTotTrib", ns)!.InnerText);
+    }
+
+    [Fact]
+    public void Invalid_xml_is_blocked_by_the_official_schema_before_sending()
+    {
+        var draft = Draft();
+        draft = draft with { Items = [draft.Items[0] with { Ncm = "4820" }, draft.Items[1]] }; // NCM precisa de 8 dígitos
+        var ex = Assert.Throws<DomainException>(() => _gateway.BuildAndSign(draft, _settings));
+        Assert.Contains("esquema oficial", ex.Message);
+        Assert.Contains("NCM", ex.Message);
     }
 
     [Fact]

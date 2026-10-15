@@ -190,6 +190,7 @@ public sealed record NfceRow(NfceInfo Info)
         FiscalDocumentStatus.Rejected => "Rejeitada",
         FiscalDocumentStatus.Denied => "Denegada",
         FiscalDocumentStatus.Cancelled => "Cancelada",
+        FiscalDocumentStatus.Voided => "Inutilizada",
         _ => status.ToString(),
     };
 }

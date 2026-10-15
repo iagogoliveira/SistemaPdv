@@ -8,6 +8,11 @@
     <PackageReference Include="Zeus.Net.NFe.NFCe" Version="2026.9.24.1416" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Esquemas oficiais da NF-e/NFC-e 4.00 (copiados da DFe.NET, NFe.AppTeste/Schemas) para validação local. -->
+    <None Include="Schemas\*.xsd" CopyToOutputDirectory="PreserveNewest" LinkBase="Schemas" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

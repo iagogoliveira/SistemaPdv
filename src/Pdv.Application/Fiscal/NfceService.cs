@@ -25,6 +25,7 @@ public sealed class NfceService(
     INfceGateway gateway,
     INfceSettingsStore settingsStore,
     PermissionChecker permissions,
+    TaxApproximationService approximateTaxes,
     TimeProvider clock)
 {
     private const int DuplicateStatusCode = 204;
@@ -134,6 +135,92 @@ public sealed class NfceService(
         return await gateway.ServiceStatusAsync(settings, uf, ct);
     }
 
+    // ---------- Inutilização ----------
+
+    /// <summary>
+    /// Números a inutilizar: lacunas na numeração (número reservado sem documento) e NFC-e rejeitadas de vendas canceladas.
+    /// Rejeitada de venda ativa não entra: o certo é corrigir o cadastro e reenviar com o mesmo número.
+    /// </summary>
+    public async Task<IReadOnlyList<long>> GetVoidSuggestionsAsync(Guid actorId, CancellationToken ct = default)
+    {
+        await RequireCompanyAsync(actorId, ct);
+        var settings = settingsStore.Load();
+        var series = await db.FiscalSeries.AsNoTracking().FirstOrDefaultAsync(s => s.Environment == settings.Environment && s.Series == settings.Series, ct);
+        if (series is null) return [];
+        var docs = await db.FiscalDocuments.AsNoTracking()
+            .Where(d => d.Environment == settings.Environment && d.Series == settings.Series)
+            .Select(d => new { d.Number, d.Status, d.SaleId }).ToListAsync(ct);
+        var voided = await db.NumberVoids.AsNoTracking()
+            .Where(v => v.Environment == settings.Environment && v.Series == settings.Series && v.Status == NumberVoidStatus.Done)
+            .Select(v => new { v.From, v.To }).ToListAsync(ct);
+        var cancelledSales = await db.Sales.AsNoTracking().Where(s => s.Status == SaleStatus.Cancelled).Select(s => s.Id).ToListAsync(ct);
+        var used = docs.Select(d => d.Number).ToHashSet();
+        bool AlreadyVoided(long n) => voided.Any(v => n >= v.From && n <= v.To);
+
+        var gaps = Enumerable.Range(1, (int)Math.Min(series.NextNumber - 1, 100_000)).Select(n => (long)n)
+            .Where(n => !used.Contains(n) && !AlreadyVoided(n));
+        var rejected = docs.Where(d => d.Status == FiscalDocumentStatus.Rejected && cancelledSales.Contains(d.SaleId)).Select(d => d.Number);
+        return gaps.Concat(rejected).Distinct().Order().Take(500).ToList();
+    }
+
+    /// <summary>Inutiliza a faixa na SEFAZ. Só números sem nota ou de NFC-e rejeitada de venda cancelada.</summary>
+    public async Task<Result<string>> VoidNumbersAsync(Guid actorId, long from, long to, string justification, CancellationToken ct = default)
+    {
+        try
+        {
+            await RequireCompanyAsync(actorId, ct);
+            var settings = RequireSettings();
+            var company = await db.Companies.AsNoTracking().FirstAsync(ct);
+            var store = await db.Stores.AsNoTracking().OrderBy(s => s.Id).FirstAsync(ct);
+            if (company.Cnpj is null || company.Address is null) throw new DomainException("Complete os dados da empresa antes de inutilizar números.");
+
+            var record = new NumberVoid(store.Id, settings.Environment, settings.Series, from, to, justification, actorId, clock.GetUtcNow());
+            var cancelledSales = db.Sales.Where(s => s.Status == SaleStatus.Cancelled).Select(s => s.Id);
+            var blocking = await db.FiscalDocuments.AsNoTracking()
+                .Where(d => d.Environment == settings.Environment && d.Series == settings.Series && d.Number >= from && d.Number <= to
+                    && !(d.Status == FiscalDocumentStatus.Rejected && cancelledSales.Contains(d.SaleId)) && d.Status != FiscalDocumentStatus.Voided)
+                .Select(d => d.Number).ToListAsync(ct);
+            if (blocking.Count > 0)
+                throw new DomainException($"Os números {string.Join(", ", blocking.Take(10))} têm NFC-e emitida ou de venda ativa e não podem ser inutilizados.");
+
+            var result = await gateway.VoidNumbersAsync(company.Cnpj, settings.Series, from, to, record.Justification, settings, company.Address.Uf, ct);
+            var done = result.Outcome == SefazOutcome.Authorized;
+            record.Complete(done, result.StatusCode, result.Message, result.Protocol);
+            db.NumberVoids.Add(record);
+            if (done)
+            {
+                foreach (var doc in await db.FiscalDocuments.Where(d => d.Environment == settings.Environment && d.Series == settings.Series
+                             && d.Number >= from && d.Number <= to && d.Status == FiscalDocumentStatus.Rejected).ToListAsync(ct))
+                    doc.MarkVoided(result.Protocol ?? "");
+                var series = await db.FiscalSeries.FirstOrDefaultAsync(s => s.StoreId == store.Id && s.Environment == settings.Environment
+                    && s.Series == settings.Series, ct);
+                if (series is null)
+                {
+                    series = new FiscalSeries(store.Id, settings.Environment, settings.Series);
+                    db.FiscalSeries.Add(series);
+                }
+                series.SkipBeyond(to);
+            }
+            db.AuditEntries.Add(new AuditEntry("nfce.numbers_voided", actorId, null, record.Id,
+                $"série {settings.Series} {from}-{to}: {result.StatusCode} {result.Message}", clock.GetUtcNow()));
+            await db.SaveChangesAsync(ct);
+            return done
+                ? Result<string>.Ok($"Números {from}{(to > from ? $" a {to}" : "")} da série {settings.Series} inutilizados. Protocolo {result.Protocol}.")
+                : Result<string>.Fail($"A SEFAZ não inutilizou: {result.StatusCode} - {result.Message}");
+        }
+        catch (DomainException ex)
+        {
+            db.ResetChangeTracker();
+            return Result<string>.Fail(ex.Message);
+        }
+    }
+
+    private async Task RequireCompanyAsync(Guid actorId, CancellationToken ct)
+    {
+        if (!await permissions.HasAsync(actorId, Permissions.ManageCompany, ct))
+            throw new DomainException("Seu usuário não tem permissão para administrar a NFC-e.");
+    }
+
     private NfceSettings RequireSettings()
     {
         var settings = settingsStore.Load();
@@ -142,7 +229,7 @@ public sealed class NfceService(
         return settings;
     }
 
-    private sealed record EmissionContext(Sale Sale, Guid StoreId, NfceEmitter Emitter, IReadOnlyList<NfceItem> Items);
+    private sealed record EmissionContext(Sale Sale, Guid StoreId, NfceEmitter Emitter, IReadOnlyList<NfceItem> Items, string? ApproximateTaxText);
 
     private async Task<EmissionContext> LoadContextAsync(Guid saleId, CancellationToken ct, bool allowCancelledSale = false)
     {
@@ -173,16 +260,18 @@ public sealed class NfceService(
         var emitter = new NfceEmitter(company.Cnpj!, company.LegalName, company.TradeName, company.StateRegistration!, company.TaxRegime,
             a.Street, a.Number, a.Complement, a.District, a.CityIbgeCode, a.City, a.Uf, a.ZipCode, company.Phone);
 
+        // Lei 12.741/2012: valor aproximado dos tributos por item (vTotTrib) e no texto ao consumidor.
+        var taxes = await approximateTaxes.ComputeAsync(sale, ct);
         var items = sale.Items.OrderBy(i => i.LineNumber).Select(i =>
         {
             codes.TryGetValue(i.ProductId, out var barcode);
             return new NfceItem(i.LineNumber, barcode ?? i.ProductId.ToString("N")[..12].ToUpperInvariant(),
                 Gtin.IsValid(barcode) ? barcode : null, i.Description, i.Ncm!, i.Cest, i.Cfop!, i.Unit,
                 i.Quantity, i.UnitPrice, i.GrossTotal, i.Discount, i.Origin, i.Csosn, i.IcmsCst, i.IcmsRate,
-                i.PisCst!, i.PisRate, i.CofinsCst!, i.CofinsRate);
+                i.PisCst!, i.PisRate, i.CofinsCst!, i.CofinsRate, taxes.ByLine.GetValueOrDefault(i.LineNumber)?.Total ?? 0);
         }).ToList();
 
-        return new EmissionContext(sale, header.StoreId, emitter, items);
+        return new EmissionContext(sale, header.StoreId, emitter, items, taxes.Text);
     }
 
     /// <summary>Reserva o próximo número da série. Concorrência entre caixas é resolvida pelo token da série.</summary>
@@ -298,7 +387,7 @@ public sealed class NfceService(
         var draft = new NfceDraft(settings.Environment, type, key, randomCode, document.Series, document.Number, issuedAt, reason,
             context.Emitter, sale.CustomerDocument, sale.CustomerName, context.Items,
             sale.Payments.Select(p => new NfcePayment(p.Method, p.Amount, p.IsIntegrated, p.AcquirerCnpj, p.CardBrand, p.AuthorizationCode)).ToList(), sale.ChangeAmount,
-            $"Venda nº {sale.Number}");
+            context.ApproximateTaxText is { } taxText ? $"Venda nº {sale.Number}. {taxText}" : $"Venda nº {sale.Number}");
 
         var signed = gateway.BuildAndSign(draft, settings);
         document.SetSignedXml(key, type, issuedAt, signed.Xml, signed.QrCodeUrl, signed.ConsultationUrl, reason);

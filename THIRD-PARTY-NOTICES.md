@@ -6,6 +6,7 @@ separadas do executável do sistema e podem ser substituídas por outras versõe
 | Componente | Uso | Licença |
 |---|---|---|
 | [DFe.NET / Zeus.Net.NFe.NFCe](https://github.com/ZeusAutomacao/DFe.NET) | Montagem, assinatura e transmissão da NFC-e | GNU LGPL 2.1 |
+| Esquemas XSD da NF-e/NFC-e 4.00 (`src/Pdv.Fiscal/Schemas`) | Validação local do XML antes do envio | Leiaute oficial do Portal da NF-e; cópia obtida do repositório DFe.NET (GNU LGPL 2.1) |
 | [Npgsql / Npgsql.EntityFrameworkCore.PostgreSQL](https://www.npgsql.org) | Acesso ao PostgreSQL | PostgreSQL License |
 | [Entity Framework Core](https://github.com/dotnet/efcore) | Acesso a dados | MIT |
 | [.NET / WPF / Microsoft.Extensions.*](https://github.com/dotnet) | Plataforma | MIT |

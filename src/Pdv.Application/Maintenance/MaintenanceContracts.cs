@@ -44,3 +44,35 @@ public interface IDemoDataSeeder
 {
     Task SeedAsync(Guid userId, CancellationToken ct = default);
 }
+
+public enum SetupState
+{
+    Ok,
+    Warning,
+    Pending,
+}
+
+/// <summary>Item do assistente de implantação: situação, o que fazer e em qual aba da retaguarda.</summary>
+public sealed record SetupItem(string Key, string Title, SetupState State, string Detail, string Tab);
+
+public sealed record SetupChecklist(IReadOnlyList<SetupItem> Items)
+{
+    public int Ready => Items.Count(i => i.State == SetupState.Ok);
+    public int Pending => Items.Count(i => i.State == SetupState.Pending);
+    public bool Complete => Items.All(i => i.State == SetupState.Ok);
+}
+
+/// <summary>
+/// Assistente de implantação da loja: confere empresa, tributação, produtos, tabela IBPT, certificado, CSC, NFC-e,
+/// comunicação com a SEFAZ, usuários, caixas, licença e backup. Implementado no Pdv.Server.
+/// </summary>
+public interface ISetupAssistant
+{
+    Task<SetupChecklist> GetAsync(Guid actorId, CancellationToken ct = default);
+
+    /// <summary>Registra que o contador conferiu os perfis tributários.</summary>
+    Task<SetupChecklist> ConfirmTaxReviewAsync(Guid actorId, CancellationToken ct = default);
+
+    /// <summary>Consulta o status da SEFAZ com o certificado configurado (sem emitir nota) e guarda o resultado.</summary>
+    Task<Result<string>> TestSefazAsync(Guid actorId, CancellationToken ct = default);
+}

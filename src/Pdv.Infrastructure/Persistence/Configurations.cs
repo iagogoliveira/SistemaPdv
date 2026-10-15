@@ -223,6 +223,34 @@ internal sealed class SaleReturnItemConfiguration : IEntityTypeConfiguration<Sal
     }
 }
 
+internal sealed class TaxApproximationConfiguration : IEntityTypeConfiguration<TaxApproximation>
+{
+    public void Configure(EntityTypeBuilder<TaxApproximation> b)
+    {
+        b.Property(x => x.Ncm).HasMaxLength(8);
+        b.HasIndex(x => x.Ncm).IsUnique();
+        b.Property(x => x.Exception).HasMaxLength(3);
+        b.Property(x => x.Description).HasMaxLength(200);
+        b.Property(x => x.Version).HasMaxLength(20);
+        b.Property(x => x.Source).HasMaxLength(60);
+        foreach (var rate in new[] { nameof(TaxApproximation.FederalNational), nameof(TaxApproximation.FederalImported),
+                     nameof(TaxApproximation.State), nameof(TaxApproximation.Municipal) })
+            b.Property(rate).HasPrecision(7, 4);
+    }
+}
+
+internal sealed class NumberVoidConfiguration : IEntityTypeConfiguration<NumberVoid>
+{
+    public void Configure(EntityTypeBuilder<NumberVoid> b)
+    {
+        b.Property(x => x.Justification).HasMaxLength(255);
+        b.Property(x => x.StatusMessage).HasMaxLength(250);
+        b.Property(x => x.Protocol).HasMaxLength(20);
+        b.HasIndex(x => new { x.StoreId, x.Environment, x.Series, x.From });
+        b.HasOne<Store>().WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 internal sealed class AppSettingConfiguration : IEntityTypeConfiguration<Domain.Common.AppSetting>
 {
     public void Configure(EntityTypeBuilder<Domain.Common.AppSetting> b)

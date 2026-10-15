@@ -43,6 +43,14 @@ public sealed class SimulatedNfceGateway(INfceGateway xmlBuilder) : INfceGateway
         return Task.FromResult(new SefazResult(SefazOutcome.Authorized, 135, "Evento registrado (SEFAZ SIMULADA)", "8" + protocol));
     }
 
+    public Task<SefazResult> VoidNumbersAsync(string cnpj, int series, long firstNumber, long lastNumber, string justification,
+        NfceSettings settings, string uf, CancellationToken ct)
+    {
+        EnsureHomologation(settings);
+        return Task.FromResult(new SefazResult(SefazOutcome.Authorized, 102, "Inutilização de número homologado (SEFAZ SIMULADA)",
+            "7" + Interlocked.Increment(ref _protocol).ToString("00000000000000", CultureInfo.InvariantCulture)));
+    }
+
     public Task<SefazResult> ServiceStatusAsync(NfceSettings settings, string uf, CancellationToken ct) =>
         Task.FromResult(new SefazResult(SefazOutcome.Authorized, 107, "Serviço em operação (SEFAZ SIMULADA — nada é enviado)"));
 

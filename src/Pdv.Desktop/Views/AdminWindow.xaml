@@ -1,4 +1,4 @@
-<Window x:Class="Pdv.Desktop.Views.AdminWindow"
+﻿<Window x:Class="Pdv.Desktop.Views.AdminWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="clr-namespace:Pdv.Desktop.Controls"
@@ -23,6 +23,69 @@
         </Border>
 
         <TabControl x:Name="Tabs" Margin="20,16,20,20">
+            <!-- ===== Implantação ===== -->
+            <TabItem x:Name="SetupTab" Visibility="{Binding ShowSetupTab, Converter={StaticResource BoolToVisibility}}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:IconView Data="{StaticResource Icon.Check}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"
+                                     Width="18" Height="18" Margin="0,0,8,0" />
+                        <TextBlock Text="Implantação" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:IconButton Icon="{StaticResource Icon.Undo}" Content="Atualizar" Command="{Binding RefreshSetupCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Icon="{StaticResource Icon.Check}" Content="Contador conferiu" Command="{Binding ConfirmTaxReviewCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Shield}" Content="Testar SEFAZ"
+                                               Command="{Binding TestSefazFromSetupCommand}" Margin="0" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Assistente de implantação" Style="{StaticResource SectionTitle}" />
+                                <TextBlock Text="{Binding SetupSummary}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ui:AccessibleItemsControl ItemsSource="{Binding SetupItems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="4,10">
+                                            <DockPanel>
+                                                <ui:IconButton DockPanel.Dock="Right" Icon="{StaticResource Icon.Edit}" Content="Abrir" VerticalAlignment="Center"
+                                                               AutomationProperties.Name="{Binding Title, StringFormat=Abrir {0}}"
+                                                               Command="{Binding DataContext.OpenSetupItemCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                               CommandParameter="{Binding}" Margin="12,0,0,0" />
+                                                <Border DockPanel.Dock="Left" CornerRadius="10" Padding="10,3" Width="92" Margin="0,0,14,0" VerticalAlignment="Center">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{StaticResource DangerSoftBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsOk}" Value="True">
+                                                                    <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                                                                    <Setter Property="Background" Value="{StaticResource WarningSoftBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding StateText}" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                                </Border>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="15" />
+                                                    <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ui:AccessibleItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+
             <TabItem Visibility="{Binding ShowProductsTab, Converter={StaticResource BoolToVisibility}}">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
@@ -529,6 +592,13 @@
                                            Text="Perfis agrupam CFOP, ICMS (CSOSN ou CST) e PIS/COFINS. Os modelos iniciais vêm com alíquotas zeradas: revise com o contador antes de emitir notas." />
                             </StackPanel>
                         </Border>
+                        <Border DockPanel.Dock="Bottom" Background="{StaticResource BrandSoftBrush}" CornerRadius="8" Padding="12,8" Margin="0,12,0,0">
+                            <DockPanel>
+                                <ui:IconButton DockPanel.Dock="Right" Icon="{StaticResource Icon.Clipboard}" Content="Importar tabela IBPT"
+                                               Command="{Binding ImportIbptCommand}" Margin="8,0,0,0" />
+                                <TextBlock Text="{Binding IbptStatus}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" />
+                            </DockPanel>
+                        </Border>
                         <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
                             <ui:IconButton Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Plus}" Content="Novo perfil"
                                            Command="{Binding NewTaxProfileCommand}" Margin="0,0,8,0" />
@@ -673,7 +743,9 @@
                                 <ui:IconButton Icon="{StaticResource Icon.Undo}" Content="Reenviar selecionada" Command="{Binding RetrySelectedNfceCommand}" Margin="0,0,8,0" />
                                 <ui:IconButton Icon="{StaticResource Icon.Receipt}" Content="Ver DANFE" Command="{Binding ShowSelectedDanfeCommand}" Margin="0,0,8,0" />
                                 <ui:IconButton Style="{StaticResource DangerIconButton}" Icon="{StaticResource Icon.XCircle}" Content="Cancelar NFC-e"
-                                               Command="{Binding CancelSelectedNfceCommand}" Margin="0" />
+                                               Command="{Binding CancelSelectedNfceCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Icon="{StaticResource Icon.Trash}" Content="Inutilizar números"
+                                               Command="{Binding VoidNumbersCommand}" Margin="0" />
                             </WrapPanel>
                             <DataGrid ItemsSource="{Binding NfceDocuments}" SelectedItem="{Binding SelectedNfce}">
                                 <DataGrid.Columns>

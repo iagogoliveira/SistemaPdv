@@ -37,6 +37,8 @@ public sealed class PdvDbContext(DbContextOptions<PdvDbContext> options) : DbCon
     public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
     public DbSet<ExchangeVoucher> ExchangeVouchers => Set<ExchangeVoucher>();
     public DbSet<PixCharge> PixCharges => Set<PixCharge>();
+    public DbSet<TaxApproximation> TaxApproximations => Set<TaxApproximation>();
+    public DbSet<NumberVoid> NumberVoids => Set<NumberVoid>();
     public DbSet<Domain.Common.AppSetting> AppSettings => Set<Domain.Common.AppSetting>();
 
     public const string SaleNumberSequence = "SaleNumbers";

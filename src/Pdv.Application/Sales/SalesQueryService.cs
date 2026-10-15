@@ -35,7 +35,8 @@ public sealed record ReceiptData(
     decimal Change,
     SaleStatus Status,
     string? CustomerDocument = null,
-    string? CompanyAddress = null);
+    string? CompanyAddress = null,
+    string? ApproximateTaxes = null);
 
 public static class PaymentLabels
 {
@@ -50,7 +51,7 @@ public static class PaymentLabels
     };
 }
 
-public sealed class SalesQueryService(IPdvDbContext db)
+public sealed class SalesQueryService(IPdvDbContext db, Fiscal.TaxApproximationService approximateTaxes)
 {
     public async Task<IReadOnlyList<SaleListItem>> ListRecentAsync(Guid terminalId, int take = 50, CancellationToken ct = default) =>
         await db.Sales.AsNoTracking()
@@ -93,6 +94,6 @@ public sealed class SalesQueryService(IPdvDbContext db)
                 .Select(i => new ReceiptLine(i.LineNumber, i.Description, i.Quantity, i.Unit, i.UnitPrice, i.Discount, i.Total)).ToList(),
             sale.Subtotal, sale.DiscountTotal, sale.Total,
             sale.Payments.Select(p => new ReceiptPayment(p.Method, p.Amount, p.IsIntegrated, p.TransactionId, p.AuthorizationCode, p.CardBrand, p.AcquirerName)).ToList(),
-            sale.ChangeAmount, sale.Status, sale.CustomerDocument, address);
+            sale.ChangeAmount, sale.Status, sale.CustomerDocument, address, (await approximateTaxes.ComputeAsync(sale, ct)).Text);
     }
 }

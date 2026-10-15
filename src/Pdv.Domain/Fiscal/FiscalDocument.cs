@@ -35,6 +35,9 @@ public enum FiscalDocumentStatus
     Denied,
 
     Cancelled,
+
+    /// <summary>Número inutilizado na SEFAZ (rejeitada de venda cancelada): não será mais usado.</summary>
+    Voided,
 }
 
 /// <summary>
@@ -93,7 +96,8 @@ public class FiscalDocument : Entity
     public string? CancellationProtocol { get; private set; }
     public string? CancellationReason { get; private set; }
 
-    public bool IsFinal => Status is FiscalDocumentStatus.Authorized or FiscalDocumentStatus.Denied or FiscalDocumentStatus.Cancelled;
+    public bool IsFinal => Status is FiscalDocumentStatus.Authorized or FiscalDocumentStatus.Denied or FiscalDocumentStatus.Cancelled
+        or FiscalDocumentStatus.Voided;
 
     /// <summary>Notas que ainda precisam ir (ou voltar) à SEFAZ.</summary>
     public bool NeedsTransmission => Status is FiscalDocumentStatus.Pending or FiscalDocumentStatus.Unknown or FiscalDocumentStatus.Contingency;
@@ -144,6 +148,15 @@ public class FiscalDocument : Entity
         Status = FiscalDocumentStatus.Rejected;
         StatusCode = statusCode;
         StatusMessage = message;
+    }
+
+    /// <summary>Só uma nota que nunca foi autorizada (rejeitada) pode ter o número inutilizado.</summary>
+    public void MarkVoided(string protocol)
+    {
+        if (Status != FiscalDocumentStatus.Rejected) throw new DomainException($"A NFC-e nº {Number} não está rejeitada: não pode ser inutilizada.");
+        Status = FiscalDocumentStatus.Voided;
+        Protocol = protocol;
+        StatusMessage = "Número inutilizado na SEFAZ.";
     }
 
     public void MarkDenied(int statusCode, string message, string? protocol)
@@ -202,6 +215,12 @@ public class FiscalSeries : Entity
     public long NextNumber { get; private set; }
 
     /// <summary>Reserva o próximo número. A gravação usa controle de concorrência: dois caixas não pegam o mesmo.</summary>
+    /// <summary>Números inutilizados à frente da numeração não podem ser usados depois.</summary>
+    public void SkipBeyond(long lastVoided)
+    {
+        if (lastVoided >= NextNumber) NextNumber = lastVoided + 1;
+    }
+
     public long Reserve()
     {
         if (NextNumber > 999_999_999) throw new DomainException("Numeração da série esgotada.");
@@ -263,4 +282,53 @@ public static class AccessKey
 
     /// <summary>Formato do DANFE: 11 grupos de 4 caracteres.</summary>
     public static string Format(string key) => string.Join(' ', Enumerable.Range(0, 11).Select(i => key.Substring(i * 4, 4)));
+}
+
+public enum NumberVoidStatus
+{
+    Done,
+    Rejected,
+}
+
+/// <summary>Pedido de inutilização de uma faixa de números da série (registro do protocolo da SEFAZ).</summary>
+public class NumberVoid : Entity
+{
+    private NumberVoid() { Justification = null!; }
+
+    public NumberVoid(Guid storeId, FiscalEnvironment environment, int series, long from, long to, string justification, Guid requestedBy,
+        DateTimeOffset requestedAt)
+    {
+        if (from < 1 || to < from || to - from > 10_000) throw new DomainException("Faixa de números inválida.");
+        justification = justification.Trim();
+        if (justification.Length is < 15 or > 255) throw new DomainException("A justificativa precisa ter de 15 a 255 caracteres.");
+        StoreId = storeId;
+        Environment = environment;
+        Series = series;
+        From = from;
+        To = to;
+        Justification = justification;
+        RequestedBy = requestedBy;
+        RequestedAt = requestedAt;
+    }
+
+    public Guid StoreId { get; private set; }
+    public FiscalEnvironment Environment { get; private set; }
+    public int Series { get; private set; }
+    public long From { get; private set; }
+    public long To { get; private set; }
+    public string Justification { get; private set; }
+    public Guid RequestedBy { get; private set; }
+    public DateTimeOffset RequestedAt { get; private set; }
+    public NumberVoidStatus Status { get; private set; }
+    public int StatusCode { get; private set; }
+    public string? StatusMessage { get; private set; }
+    public string? Protocol { get; private set; }
+
+    public void Complete(bool done, int statusCode, string message, string? protocol)
+    {
+        Status = done ? NumberVoidStatus.Done : NumberVoidStatus.Rejected;
+        StatusCode = statusCode;
+        StatusMessage = message.Length > 250 ? message[..250] : message;
+        Protocol = protocol;
+    }
 }

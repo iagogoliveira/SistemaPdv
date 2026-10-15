@@ -954,6 +954,7 @@ public partial class CheckoutViewModel(
         vm.AttachPaymentDevices(devices);
         var window = new AdminWindow(vm) { Owner = System.Windows.Application.Current.MainWindow };
         await vm.LoadAsync();
+        window.SelectStartTab();
         window.ShowDialog();
         await RefreshPaymentOptionsAsync(); // o Pix pode ter sido configurado agora
     }

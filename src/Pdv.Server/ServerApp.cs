@@ -75,6 +75,7 @@ public static class ServerApp
         builder.Services.AddScoped<IBackupManager, BackupManager>();
         builder.Services.AddScoped<IServerAdmin, ServerAdmin>();
         builder.Services.AddScoped<IDemoDataSeeder, DemoDataSeeder>();
+        builder.Services.AddScoped<ISetupAssistant, SetupAssistant>();
         builder.Services.AddHostedService<BackupScheduler>();
         builder.Services.AddHostedService<NfceQueueWorker>();
         builder.Services.AddHostedService<PixWatchWorker>();

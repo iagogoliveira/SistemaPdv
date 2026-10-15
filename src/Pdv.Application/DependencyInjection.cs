@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<CompanySettingsService>();
         services.AddScoped<TaxProfileService>();
         services.AddScoped<NfceService>();
+        services.AddScoped<TaxApproximationService>();
         services.AddScoped<NfceConfigurationService>();
         services.AddScoped<TerminalRegistry>();
         services.AddScoped<TerminalAdminService>();

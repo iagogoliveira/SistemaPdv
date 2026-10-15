@@ -42,7 +42,11 @@ namespace Pdv.Fiscal;
 /// </summary>
 public sealed class ZeusNfceGateway : INfceGateway
 {
+    /// <summary>Texto obrigatório no 1º item em homologação (xProd, até 120 caracteres).</summary>
     public const string HomologationText = "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
+
+    /// <summary>Texto obrigatório no nome do destinatário em homologação (xNome, até 60 caracteres).</summary>
+    public const string HomologationCustomerText = "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
 
     private static readonly int[] DeniedCodes = [110, 205, 301, 302, 303];
     private static readonly int[] UnavailableCodes = [108, 109];
@@ -60,7 +64,9 @@ public sealed class ZeusNfceGateway : INfceGateway
             config.Certificado);
         nfe.infNFeSupl.urlChave = nfe.infNFeSupl.ObterUrlConsulta(nfe, VersaoQrCode.QrCodeVersao3);
 
-        return new SignedNfce(nfe.ObterXmlString(), nfe.infNFeSupl.qrCode, nfe.infNFeSupl.urlChave);
+        var xml = nfe.ObterXmlString();
+        NfeSchemaValidator.ValidateNfe(xml);
+        return new SignedNfce(xml, nfe.infNFeSupl.qrCode, nfe.infNFeSupl.urlChave);
     }
 
     public Task<SefazResult> AuthorizeAsync(string signedXml, NfceSettings settings, string uf, CancellationToken ct) =>
@@ -92,6 +98,18 @@ public sealed class ZeusNfceGateway : INfceGateway
             if (info is not null && info.cStat is 135 or 155)
                 return new SefazResult(SefazOutcome.Authorized, info.cStat, info.xMotivo, info.nProt);
             return FromStatus(info?.cStat ?? response.cStat, info?.xMotivo ?? response.xMotivo);
+        }, ct);
+
+    public Task<SefazResult> VoidNumbersAsync(string cnpj, int series, long firstNumber, long lastNumber, string justification,
+        NfceSettings settings, string uf, CancellationToken ct) =>
+        CallAsync(settings, uf, (service, _) =>
+        {
+            var year = DateTime.Now.Year % 100;
+            var response = service.NfeInutilizacao(cnpj, year, ModeloDocumento.NFCe, series, (int)firstNumber, (int)lastNumber, justification).Retorno;
+            var info = response.infInut;
+            return info.cStat == 102
+                ? new SefazResult(SefazOutcome.Authorized, info.cStat, info.xMotivo, info.nProt)
+                : FromStatus(info.cStat, info.xMotivo);
         }, ct);
 
     public Task<SefazResult> ServiceStatusAsync(NfceSettings settings, string uf, CancellationToken ct) =>
@@ -189,7 +207,7 @@ public sealed class ZeusNfceGateway : INfceGateway
         var customer = new dest(VersaoServico.Versao400)
         {
             indIEDest = indIEDest.NaoContribuinte,
-            xNome = homologation ? HomologationText : (string.IsNullOrWhiteSpace(d.CustomerName) ? null : Truncate(d.CustomerName, 60)),
+            xNome = homologation ? HomologationCustomerText : (string.IsNullOrWhiteSpace(d.CustomerName) ? null : Truncate(d.CustomerName, 60)),
         };
         if (d.CustomerDocument.Length == 11) customer.CPF = d.CustomerDocument;
         else customer.CNPJ = d.CustomerDocument;
@@ -225,6 +243,8 @@ public sealed class ZeusNfceGateway : INfceGateway
             },
             imposto = new imposto
             {
+                // Lei 12.741/2012: valor aproximado dos tributos do item (tabela IBPT).
+                vTotTrib = i.ApproximateTax > 0 ? i.ApproximateTax : null,
                 ICMS = new ICMS { TipoICMS = BuildIcms(i, taxableBase) },
                 PIS = new PIS { TipoPIS = BuildPis(i.PisCst, i.PisRate, taxableBase) },
                 COFINS = new COFINS { TipoCOFINS = BuildCofins(i.CofinsCst, i.CofinsRate, taxableBase) },
@@ -287,10 +307,11 @@ public sealed class ZeusNfceGateway : INfceGateway
 
     private static ICMSTot BuildTotals(List<det> details)
     {
-        decimal vProd = 0, vDesc = 0, vBC = 0, vICMS = 0, vPIS = 0, vCOFINS = 0;
+        decimal vProd = 0, vDesc = 0, vBC = 0, vICMS = 0, vPIS = 0, vCOFINS = 0, vTotTrib = 0;
         foreach (var d in details)
         {
             vProd += d.prod.vProd;
+            vTotTrib += d.imposto.vTotTrib ?? 0;
             vDesc += d.prod.vDesc ?? 0;
             if (d.imposto.ICMS.TipoICMS is ICMS00 icms) { vBC += icms.vBC; vICMS += icms.vICMS; }
             if (d.imposto.PIS.TipoPIS is PISAliq pis) vPIS += pis.vPIS;
@@ -301,6 +322,7 @@ public sealed class ZeusNfceGateway : INfceGateway
             vBC = vBC, vICMS = vICMS, vICMSDeson = 0, vFCP = 0, vBCST = 0, vST = 0, vFCPST = 0, vFCPSTRet = 0,
             vProd = vProd, vFrete = 0, vSeg = 0, vDesc = vDesc, vII = 0, vIPI = 0, vIPIDevol = 0,
             vPIS = vPIS, vCOFINS = vCOFINS, vOutro = 0, vNF = vProd - vDesc,
+            vTotTrib = vTotTrib > 0 ? vTotTrib : null,
         };
     }
 

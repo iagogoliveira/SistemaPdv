@@ -54,7 +54,7 @@ public sealed record NfceItem(
     int LineNumber, string ProductCode, string? Gtin, string Description, string Ncm, string? Cest, string Cfop, string Unit,
     decimal Quantity, decimal UnitPrice, decimal GrossTotal, decimal Discount,
     ProductOrigin Origin, string? Csosn, string? IcmsCst, decimal IcmsRate,
-    string PisCst, decimal PisRate, string CofinsCst, decimal CofinsRate);
+    string PisCst, decimal PisRate, string CofinsCst, decimal CofinsRate, decimal ApproximateTax = 0);
 
 /// <param name="Integrated">TEF ou Pix dinâmico (tpIntegra = 1); falso = maquininha/Pix sem integração com o PDV.</param>
 public sealed record NfcePayment(PaymentMethod Method, decimal Amount, bool Integrated = false, string? AcquirerCnpj = null,
@@ -97,4 +97,8 @@ public interface INfceGateway
         string uf, CancellationToken ct);
 
     Task<SefazResult> ServiceStatusAsync(NfceSettings settings, string uf, CancellationToken ct);
+
+    /// <summary>Inutilização de uma faixa de números (cStat 102 = homologada).</summary>
+    Task<SefazResult> VoidNumbersAsync(string cnpj, int series, long firstNumber, long lastNumber, string justification, NfceSettings settings, string uf,
+        CancellationToken ct);
 }

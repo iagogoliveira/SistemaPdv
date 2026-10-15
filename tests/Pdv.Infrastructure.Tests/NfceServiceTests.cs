@@ -59,6 +59,16 @@ public sealed class FakeSefaz : INfceGateway
     public Task<SefazResult> ServiceStatusAsync(NfceSettings settings, string uf, CancellationToken ct) =>
         Task.FromResult(new SefazResult(SefazOutcome.Authorized, 107, "Serviço em Operação"));
 
+    public List<(int Series, long From, long To, string Justification)> Voids { get; } = [];
+    public SefazResult? NextVoid { get; set; }
+
+    public Task<SefazResult> VoidNumbersAsync(string cnpj, int series, long firstNumber, long lastNumber, string justification,
+        NfceSettings settings, string uf, CancellationToken ct)
+    {
+        lock (Voids) Voids.Add((series, firstNumber, lastNumber, justification));
+        return Task.FromResult(NextVoid ?? new SefazResult(SefazOutcome.Authorized, 102, "Inutilização de número homologado", "135777"));
+    }
+
     public SefazResult Authorized() =>
         new(SefazOutcome.Authorized, 100, "Autorizado o uso da NF-e", Interlocked.Increment(ref _protocol).ToString(System.Globalization.CultureInfo.InvariantCulture),
             "<nfeProc/>", DateTimeOffset.UtcNow);

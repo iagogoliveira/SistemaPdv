@@ -7,6 +7,10 @@
 2. Na primeira vez da loja, a tela de entrada pede a criação do **administrador**. Depois ele cadastra os demais
    usuários em Retaguarda › Usuários.
 3. Ao entrar com o caixa fechado, o sistema pede o troco inicial (abertura de caixa).
+4. Na retaguarda, a aba **Implantação** (aberta primeiro enquanto houver pendências) lista o que falta para emitir
+   NFC-e com segurança — empresa, tributação, NCM, tabela IBPT, certificado, CSC, emissão, teste da SEFAZ, usuários,
+   caixas, licença e backup —, cada item com situação (Pronto, Atenção, Pendente) e o botão **Abrir**, que leva à aba
+   onde se resolve. "Contador conferiu" registra a revisão tributária; "Testar SEFAZ" consulta o status do serviço.
 
 ## Frente de caixa — atalhos
 
@@ -70,13 +74,14 @@ escolha a forma "Vale-troca" e digite o código (pode ser usado em parte).
 
 | Aba | Permissão | O que faz |
 |---|---|---|
+| Implantação | empresa ou sistema | Checklist da implantação (ver Primeiro acesso) |
 | Produtos | produtos / estoque | Cadastro, códigos de barras, preço, custo, estoque mínimo, entradas, ajustes, histórico |
 | Compras | produtos / estoque | Fornecedores, entrada manual com vários itens, importação do XML da NF-e |
 | Relatórios | relatórios | Ver abaixo |
 | Usuários | usuários | Usuários, perfis, senhas, ativação |
 | Empresa | empresa | Dados fiscais da empresa e da loja |
-| Tributação | empresa | Perfis tributários |
-| NFC-e | empresa | Configuração da emissão, teste da SEFAZ, notas pendentes/rejeitadas, DANFE, cancelamento |
+| Tributação | empresa | Perfis tributários; importação da tabela IBPT (tributos aproximados) |
+| NFC-e | empresa | Configuração da emissão, teste da SEFAZ, notas pendentes/rejeitadas, DANFE, cancelamento, inutilização de números |
 | Pagamentos | empresa / relatórios | Configuração do Pix integrado; Pix recebidos (30 dias), consulta ao PSP e devolução; TEF deste caixa |
 | Sistema | sistema | Código de conexão, caixas conectados, backup e restauração |
 

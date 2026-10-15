@@ -24,7 +24,6 @@ Itens conhecidos que ficam fora das etapas em andamento e serão retomados antes
 - Bandeiras além de Visa/Master/Amex/Sorocred/Diners na NFC-e (a biblioteca fiscal só tem essas: as demais saem como 99).
 
 **Fiscal (complementos da Etapa 3)**
-- Inutilização de numeração; validação local pelos XSD oficiais; tributos aproximados (Lei 12.741/IBPT).
 - CSOSN 101/201/202/203/900 e CST 10/20/30/51/70/90; grupos IBS/CBS.
 - NF-e de entrada para devoluções de venda com NFC-e (a devolução da Etapa 4 é só operacional: estoque e caixa).
 
@@ -82,8 +81,9 @@ Situação (14/10/2026):
 - ✅ Todos os cenários do aceite cobertos por testes automatizados contra SEFAZ simulada.
 - ⏳ **Homologação real:** depende do certificado A1 da empresa, do credenciamento como emissor de NFC-e e do
   CSC de homologação na UF escolhida.
-- ⏳ Inutilização de numeração; validação local pelos XSD oficiais; tributos aproximados (Lei 12.741/IBPT);
-  grupos IBS/CBS da reforma tributária (avaliar obrigatoriedade por regime com o contador);
+- ✅ Inutilização de numeração; validação local pelos XSD oficiais antes do envio; tributos aproximados
+  (Lei 12.741, tabela IBPT) na NFC-e e no comprovante; assistente de implantação na retaguarda.
+- ⏳ Grupos IBS/CBS da reforma tributária (avaliar obrigatoriedade por regime com o contador);
   CSOSN 101/201/202/203/900 e CST 10/20/30/51/70/90.
 
 ## Etapa 4 — Operação do dia a dia  ✅ concluída

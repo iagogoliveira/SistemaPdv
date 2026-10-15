@@ -2,6 +2,15 @@
 
 ## Em desenvolvimento
 
+- Assistente de implantação (Retaguarda › Implantação, primeira aba enquanto houver pendências): 12 itens conferidos
+  pelo servidor — empresa, tributação (com "Contador conferiu"), NCM dos produtos, tabela IBPT, certificado A1
+  (validade e CNPJ), CSC, emissão, teste da SEFAZ, usuários, caixas, licença e backup — com atalho para a aba de cada um.
+- Tributos aproximados (Lei 12.741): importação da tabela IBPT, `vTotTrib` por item e no total, texto nas informações
+  complementares da NFC-e e no comprovante.
+- Inutilização de numeração da NFC-e (lacunas e rejeitadas de vendas canceladas), com sugestões e registro.
+- Validação do XML pelos esquemas oficiais (XSD 4.00) antes do envio; corrigido o nome do destinatário em homologação
+  (passava de 60 caracteres).
+
 - Frente de caixa em telas pequenas (1366×768 e até 1024×640): modo compacto em telas baixas (teclas de função em
   linha, total menor, destaque do último item oculto, formas de pagamento em 3 colunas), colunas mais estreitas em telas
   estreitas e "Finalizar venda" sempre visível; botões de pagamento "Débito"/"Crédito".

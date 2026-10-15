@@ -14,6 +14,20 @@
 - **Produto:** NCM, CEST, origem e perfil próprio (ou o padrão da empresa). A retaguarda avisa produtos sem NCM.
 - Na venda, cada item grava o retrato fiscal (NCM, CFOP, CSOSN/CST, alíquotas) e a venda grava o CPF/CNPJ do consumidor.
 
+## Tributos aproximados (Lei 12.741/2012 — tabela IBPT)
+
+A loja baixa a tabela "De olho no imposto" da sua UF em <https://deolhonoimposto.ibpt.org.br> (com o CNPJ) e importa o
+CSV em Retaguarda › Tributação › **Importar tabela IBPT** (permissão `company.manage`). A importação substitui a tabela
+anterior, guarda só as linhas de NCM sem exceção (`tipo 0`, `ex` vazio), aceita UTF-8 ou Latin-1 e fica na auditoria.
+
+- Por item: federal (alíquota nacional ou de importados, conforme a origem do produto: 1, 2, 6 e 7 são importados),
+  estadual e municipal sobre o valor líquido do item.
+- Na NFC-e: `vTotTrib` em cada item e no `ICMSTot`, e o texto "Trib aprox R$ X Federal, R$ Y Estadual e R$ Z Municipal.
+  Fonte: IBPT ..." nas informações complementares.
+- No comprovante não fiscal: a mesma linha depois dos pagamentos.
+- A aba mostra versão, validade, tabela vencida e quantos produtos ativos têm NCM fora da tabela. Produto sem alíquota
+  sai com tributo aproximado zero (a nota não é bloqueada).
+
 ## Configuração da emissão
 
 Retaguarda › NFC-e (permissão `company.manage`), guardada **no servidor** e válida para todos os caixas:
@@ -48,6 +62,30 @@ flowchart TD
   dentro do prazo configurado (padrão 30 minutos).
 - DANFE NFC-e com QR Code (QRCoder), impresso em bobina.
 
+## Validação pelos esquemas oficiais (XSD)
+
+Antes de qualquer envio, o XML assinado é validado localmente pelos esquemas oficiais do leiaute 4.00 (pasta
+`Schemas` ao lado do servidor: `nfe_v4.00.xsd` e dependências, inclusive IBS/CBS, mais os de inutilização e
+cancelamento). Um erro de esquema vira mensagem clara ("O XML da NFC-e não passou na validação do esquema oficial
+(nada foi enviado à SEFAZ)", com até 5 erros) em vez de uma rejeição da SEFAZ. A validação pegou um defeito real: em
+homologação o nome do destinatário tinha 64 caracteres (máximo 60); agora sai
+"NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL".
+
+Para atualizar os esquemas (nova nota técnica), substitua os `.xsd` em `src/Pdv.Fiscal/Schemas` pelos do pacote
+oficial do Portal da NF-e (ou da pasta `NFe.AppTeste/Schemas` da DFe.NET) e rode os testes fiscais.
+
+## Inutilização de numeração
+
+Retaguarda › NFC-e › **Inutilizar números**: informa um número ou faixa (`15` ou `15-18`) e a justificativa (15 a 255
+caracteres); o sistema sugere os números pendentes. Regras:
+
+- Pode: lacunas abaixo do próximo número (números reservados que nunca viraram nota) e notas **rejeitadas cuja venda
+  foi cancelada**; faixas à frente da numeração (a série pula para depois da faixa).
+- Não pode: número com nota autorizada, em contingência, aguardando resposta ou rejeitada de **venda ativa** (o certo é
+  corrigir o cadastro e reenviar).
+- Com o retorno 102 da SEFAZ, as notas rejeitadas da faixa ficam com a situação **Inutilizada**; cada pedido
+  (aceito ou recusado) fica registrado com protocolo e na auditoria.
+
 ## Formas de pagamento na NFC-e
 
 | Pagamento no PDV | `tPag` | Grupo `card` |
@@ -70,5 +108,4 @@ treinamento — **nunca** envie notas de teste à SEFAZ real com certificados de
 
 ## Pendências fiscais
 
-Inutilização de numeração; validação pelos XSD oficiais; tributos aproximados (Lei 12.741/IBPT); demais CSOSN/CST;
-grupos IBS/CBS da reforma; NF-e de entrada para devoluções. Ver [roadmap](ROADMAP.md).
+Demais CSOSN/CST; grupos IBS/CBS da reforma; NF-e de entrada para devoluções. Ver [roadmap](ROADMAP.md).

@@ -36,6 +36,8 @@ public interface IPdvDbContext
     DbSet<SaleReturn> SaleReturns { get; }
     DbSet<ExchangeVoucher> ExchangeVouchers { get; }
     DbSet<PixCharge> PixCharges { get; }
+    DbSet<TaxApproximation> TaxApproximations { get; }
+    DbSet<NumberVoid> NumberVoids { get; }
     DbSet<Domain.Common.AppSetting> AppSettings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
