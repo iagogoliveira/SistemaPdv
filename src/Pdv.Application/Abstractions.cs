@@ -5,6 +5,7 @@ using Pdv.Domain.Catalog;
 using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Inventory;
+using Pdv.Domain.Payments;
 using Pdv.Domain.Purchases;
 using Pdv.Domain.Sales;
 using Pdv.Domain.Stores;
@@ -34,6 +35,7 @@ public interface IPdvDbContext
     DbSet<SupplierProduct> SupplierProducts { get; }
     DbSet<SaleReturn> SaleReturns { get; }
     DbSet<ExchangeVoucher> ExchangeVouchers { get; }
+    DbSet<PixCharge> PixCharges { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 

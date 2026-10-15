@@ -1,5 +1,17 @@
 # Histórico de mudanças
 
+## 0.6.0 — Etapa 6: pagamentos integrados
+
+- Pix com QR Code dinâmico pela API Pix do Banco Central (ou PSP simulado), confirmação automática e acompanhamento pelo
+  servidor; venda só aceita Pix confirmado, que quita uma única venda.
+- Retaguarda › Pagamentos: configuração do Pix (credenciais e certificado cifrados no servidor) e conciliação com
+  consulta ao PSP e devolução de Pix pago sem venda ou de venda cancelada.
+- TEF no caixa (porta comum, TEF simulado): aprovar → confirmar após gravar a venda → desfazer se não concluir;
+  pendências no disco contra queda de energia; estorno ao cancelar a venda; via do cliente impressa com o comprovante.
+- NSU, autorização, bandeira e credenciadora/PSP no pagamento, no comprovante e na NFC-e (`card` com `tpIntegra = 1`,
+  Pix dinâmico `tPag 17`).
+- Abas da retaguarda numa linha só ("Produtos").
+
 ## 0.5.0 — Etapa 5: vários caixas e robustez
 
 - Servidor central da loja (`Pdv.Server`, serviço do Windows): único com acesso ao banco e ao certificado.

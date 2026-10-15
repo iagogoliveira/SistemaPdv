@@ -45,6 +45,12 @@ public partial class AdminWindow : Window
     private void OnCscTokenChanged(object sender, RoutedEventArgs e) =>
         _viewModel.CscTokenInput = CscTokenBox.Password;
 
+    private void OnPixSecretChanged(object sender, RoutedEventArgs e) =>
+        _viewModel.PixClientSecretInput = PixSecretBox.Password;
+
+    private void OnPixCertPasswordChanged(object sender, RoutedEventArgs e) =>
+        _viewModel.PixCertificatePasswordInput = PixCertPasswordBox.Password;
+
     private void OnTaxProfileDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (_viewModel.CanManageCompany) _viewModel.EditSelectedTaxProfileCommand.Execute(null);

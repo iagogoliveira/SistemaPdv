@@ -49,6 +49,7 @@ public partial class AdminViewModel(ServerRunner runner, AppState state, IDialog
         await LoadFiscalAsync();
         await LoadPurchasesAsync();
         LoadReports();
+        await LoadPaymentsAsync();
         await LoadSystemAsync();
     }
 

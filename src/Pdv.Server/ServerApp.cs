@@ -4,11 +4,13 @@ using System.Text.Json;
 using Pdv.Application;
 using Pdv.Application.Fiscal;
 using Pdv.Application.Maintenance;
+using Pdv.Application.Payments;
 using Pdv.Application.Remote;
 using Pdv.Application.Terminals;
 using Pdv.Domain.Common;
 using Pdv.Fiscal;
 using Pdv.Infrastructure;
+using Pdv.Infrastructure.Payments;
 using Pdv.Infrastructure.Persistence;
 using Pdv.Infrastructure.Security;
 using Serilog;
@@ -55,6 +57,7 @@ public static class ServerApp
         else
             builder.Services.AddSingleton<INfceGateway, ZeusNfceGateway>();
         builder.Services.AddSingleton<INfceSettingsStore>(_ => new FileNfceSettingsStore(folder, builder.Configuration["Pdv:Fiscal:SettingsFile"]));
+        builder.Services.AddSingleton<IPixSettingsStore>(_ => new FilePixSettingsStore(folder));
 
         builder.Services.AddSingleton<RpcDispatcher>();
         builder.Services.AddSingleton<TerminalGate>();
@@ -66,6 +69,7 @@ public static class ServerApp
         builder.Services.AddScoped<IDemoDataSeeder, DemoDataSeeder>();
         builder.Services.AddHostedService<BackupScheduler>();
         builder.Services.AddHostedService<NfceQueueWorker>();
+        builder.Services.AddHostedService<PixWatchWorker>();
 
         var app = builder.Build();
         MapEndpoints(app);

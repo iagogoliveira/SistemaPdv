@@ -7,6 +7,7 @@ using Pdv.Application;
 using Pdv.Application.Cash;
 using Pdv.Application.Catalog;
 using Pdv.Application.Fiscal;
+using Pdv.Application.Payments;
 using Pdv.Application.Reports;
 using Pdv.Application.Sales;
 using Pdv.Desktop.Services;
@@ -21,7 +22,18 @@ namespace Pdv.Desktop.ViewModels;
 
 public sealed record PaymentOption(PaymentMethod Method, string Label);
 
-public sealed record PaymentEntry(PaymentMethod Method, string Label, decimal Amount, string? Reference = null);
+/// <param name="Tef">Cartão aprovado pelo TEF deste caixa (pendente de confirmação até a venda ser gravada).</param>
+/// <param name="PixChargeId">Pix com QR dinâmico confirmado pelo PSP.</param>
+public sealed record PaymentEntry(PaymentMethod Method, string Label, decimal Amount, string? Reference = null,
+    TefApproval? Tef = null, Guid? PixChargeId = null)
+{
+    public CheckoutPayment ToCommand() => new(Method, Amount, Reference,
+        Tef is { } t ? new PaymentIntegration(t.Nsu, t.AuthorizationCode, t.CardBrand, t.AcquirerCnpj, t.AcquirerName) : null,
+        PixChargeId);
+}
+
+/// <summary>Equipamentos de pagamento deste caixa (TEF configurado em Pdv:Tef:Provider; nulo = maquininha não integrada).</summary>
+public sealed record PaymentDevices(TefCoordinator? Tef);
 
 public partial class CartLine(int number, ProductLookupItem product, decimal quantity) : ObservableObject
 {
@@ -49,6 +61,7 @@ public partial class CheckoutViewModel(
     ReceiptPrinter printer,
     Func<AdminViewModel> adminFactory,
     SaleJournal journal,
+    PaymentDevices devices,
     TicketPrinter tickets,
     Func<LoginViewModel> loginFactory) : ObservableObject
 {
@@ -61,6 +74,9 @@ public partial class CheckoutViewModel(
 
     // Quem liberou os descontos desta venda (o próprio operador, se tiver permissão).
     private Guid? _discountAuthorizerId;
+
+    // Pix com QR dinâmico configurado no servidor (consultado ao abrir e ao voltar da retaguarda).
+    private bool _pixIntegrated;
 
     public ObservableCollection<CartLine> Items { get; } = [];
 
@@ -144,7 +160,34 @@ public partial class CheckoutViewModel(
         Payments.CollectionChanged += (_, _) => NotifyTotals();
         await RefreshCashAsync();
         await RecoverInterruptedSaleAsync();
+        await UndoLeftoverCardPaymentsAsync();
+        await RefreshPaymentOptionsAsync();
         if (!IsCashOpen) await OpenCashAsync();
+    }
+
+    private async Task RefreshPaymentOptionsAsync() =>
+        _pixIntegrated = await runner.RunAsync<PixService, bool>(s => s.IsEnabledAsync(default));
+
+    /// <summary>
+    /// Cartões aprovados no TEF cuja venda não chegou a ser concluída (caixa desligado com o carrinho aberto):
+    /// são desfeitos, para o cliente não ser cobrado sem venda.
+    /// </summary>
+    private async Task UndoLeftoverCardPaymentsAsync()
+    {
+        if (devices.Tef is not { } tef || tef.Pending.Count == 0) return;
+        var pending = tef.Pending;
+        try
+        {
+            await tef.UndoAsync(pending, CancellationToken.None);
+            Log.Warning("{Count} transação(ões) de cartão sem venda desfeita(s): {Nsus}", pending.Count, string.Join(", ", pending.Select(p => p.Nsu)));
+            dialogs.ShowInfo($"{pending.Count} pagamento(s) com cartão de uma venda não concluída foram desfeitos no TEF " +
+                $"({string.Join(", ", pending.Select(p => $"{p.Amount:C} NSU {p.Nsu}"))}). O cliente não será cobrado.");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Falha ao desfazer transações pendentes do TEF");
+            dialogs.ShowError($"Há pagamentos com cartão pendentes no TEF que não puderam ser desfeitos: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -156,9 +199,11 @@ public partial class CheckoutViewModel(
         var pending = journal.Load();
         if (pending is null) return;
 
+        var cards = (devices.Tef?.Pending ?? []).Where(a => pending.Payments.Any(p => p.Integration?.TransactionId == a.Nsu)).ToList();
         var found = await runner.RunAsync<SalesQueryService, SaleListItem?>(q => q.FindByRequestAsync(pending.ClientRequestId, default));
         if (found is not null)
         {
+            await SettleCardsAsync(cards, confirm: true);
             journal.Clear();
             Log.Information("Venda interrompida {RequestId} já estava gravada como nº {Number}", pending.ClientRequestId, found.Number);
             StatusMessage = $"Venda nº {found.Number} (interrompida) já estava gravada.";
@@ -172,12 +217,14 @@ public partial class CheckoutViewModel(
             $"({pending.Items.Count} item(ns), pagamentos de {paid:C}).\n\nConcluir essa venda agora?\n" +
             "(Não = descartar: nem a mercadoria nem o dinheiro foram registrados.)"))
         {
+            await SettleCardsAsync(cards, confirm: false);
             journal.Clear();
             Log.Warning("Venda interrompida {RequestId} descartada pelo operador", pending.ClientRequestId);
             return;
         }
 
         var result = await runner.RunAsync<CheckoutService, Result<SaleReceipt>>(c => c.FinalizeAsync(pending, default));
+        await SettleCardsAsync(cards, confirm: result.Succeeded);
         journal.Clear();
         if (!result.Succeeded)
         {
@@ -400,9 +447,13 @@ public partial class CheckoutViewModel(
     }
 
     [RelayCommand]
-    private void ClearCart()
+    private async Task ClearCartAsync()
     {
-        if (Items.Count == 0 || !EnsureCartEditable() || !dialogs.Confirm("Descartar a venda em andamento?")) return;
+        if (Items.Count == 0 || !EnsureCartEditable()) return;
+        var pix = Payments.Where(p => p.PixChargeId is not null).Sum(p => p.Amount);
+        if (!dialogs.Confirm("Descartar a venda em andamento?" + (pix > 0
+            ? $"\n\nAtenção: {pix:C} em Pix já foram recebidos e precisarão ser devolvidos em Retaguarda › Pagamentos." : ""))) return;
+        await SettleCardsAsync(Payments.Select(p => p.Tef).OfType<TefApproval>().ToList(), confirm: false);
         ResetCart("Venda descartada.");
     }
 
@@ -444,6 +495,22 @@ public partial class CheckoutViewModel(
             return;
         }
 
+        var integrated = (SelectedPayment.Method is PaymentMethod.CreditCard or PaymentMethod.DebitCard && devices.Tef is not null)
+            || (SelectedPayment.Method == PaymentMethod.Pix && _pixIntegrated);
+        if (integrated && amount > 0)
+        {
+            if (amount > Remaining) { dialogs.ShowError("Cartão e Pix não podem passar do valor restante (não há troco)."); return; }
+            var entry = SelectedPayment.Method == PaymentMethod.Pix
+                ? PayWithPix(amount)
+                : PayWithCard(devices.Tef!, SelectedPayment, amount);
+            if (entry is null) return;
+            Payments.Add(entry);
+            AmountInput = "";
+            if (Remaining == 0) await FinalizeAsync();
+            else StatusMessage = $"{entry.Label}: {amount:C} aprovado. Restam {Remaining:C}.";
+            return;
+        }
+
         if (amount > 0)
         {
             if (SelectedPayment.Method != PaymentMethod.Cash && amount > Remaining)
@@ -460,6 +527,41 @@ public partial class CheckoutViewModel(
     }
 
     /// <summary>Vale-troca: pede o código, confere o saldo e lança até o valor que falta.</summary>
+    private PaymentEntry? PayWithPix(decimal amount)
+    {
+        var dialog = new PixPaymentDialog(runner, state.Terminal.Id, _clientRequestId, amount) { Owner = System.Windows.Application.Current.MainWindow };
+        if (dialog.ShowDialog() != true || dialog.Charge is not { } charge) return null;
+        Log.Information("Pix {Txid} confirmado: {Amount} ({E2E})", charge.Txid, charge.Amount, charge.EndToEndId);
+        return new PaymentEntry(PaymentMethod.Pix, "Pix (QR dinâmico)", charge.Amount, charge.Txid, PixChargeId: charge.Id);
+    }
+
+    private PaymentEntry? PayWithCard(TefCoordinator tef, PaymentOption option, decimal amount)
+    {
+        var type = option.Method == PaymentMethod.CreditCard ? TefCardType.Credit : TefCardType.Debit;
+        var dialog = new TefPaymentDialog(tef, new TefRequest(type, amount, 1, $"{state.Terminal.Code}-{_clientRequestId:N}"))
+        { Owner = System.Windows.Application.Current.MainWindow };
+        if (dialog.ShowDialog() != true || dialog.Outcome?.Approval is not { } approval) return null;
+        Log.Information("Cartão aprovado no TEF: {Amount} NSU {Nsu} {Brand}", approval.Amount, approval.Nsu, approval.CardBrandName);
+        return new PaymentEntry(option.Method, $"{option.Label} {approval.CardBrandName} NSU {approval.Nsu}", amount, Tef: approval);
+    }
+
+    /// <summary>Confirma (venda gravada) ou desfaz (venda não concluída) os cartões aprovados no TEF.</summary>
+    private async Task SettleCardsAsync(List<TefApproval> cards, bool confirm)
+    {
+        if (cards.Count == 0 || devices.Tef is not { } tef) return;
+        try
+        {
+            if (confirm) await tef.ConfirmAsync(cards, CancellationToken.None);
+            else await tef.UndoAsync(cards, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Falha ao {Action} transações do TEF", confirm ? "confirmar" : "desfazer");
+            dialogs.ShowError($"O TEF não {(confirm ? "confirmou" : "desfez")} o pagamento com cartão: {ex.Message}\n" +
+                "A transação fica pendente e será resolvida na próxima abertura do caixa.");
+        }
+    }
+
     private async Task AddVoucherPaymentAsync(decimal? requested)
     {
         var code = dialogs.Prompt("Vale-troca", "Código do vale-troca:");
@@ -482,9 +584,13 @@ public partial class CheckoutViewModel(
     }
 
     [RelayCommand]
-    private void RemovePayment(PaymentEntry? payment)
+    private async Task RemovePaymentAsync(PaymentEntry? payment)
     {
-        if (payment is not null && EnsureCartEditable()) Payments.Remove(payment);
+        if (payment is null || !EnsureCartEditable()) return;
+        if (payment.PixChargeId is not null && !dialogs.Confirm($"Este Pix de {payment.Amount:C} já foi recebido.\n\n" +
+            "Se removê-lo, o valor precisa ser devolvido ao cliente em Retaguarda › Pagamentos. Remover?")) return;
+        if (payment.Tef is { } card) await SettleCardsAsync([card], confirm: false);
+        Payments.Remove(payment);
     }
 
     [RelayCommand(CanExecute = nameof(CanFinalize))]
@@ -515,7 +621,7 @@ public partial class CheckoutViewModel(
             state.Terminal.Id,
             state.User!.UserId,
             Items.Select(i => new CheckoutItem(i.Product.ProductId, i.Quantity, i.Discount)).ToList(),
-            Payments.Select(p => new CheckoutPayment(p.Method, p.Amount, p.Reference)).ToList(),
+            Payments.Select(p => p.ToCommand()).ToList(),
             DiscountTotal > 0 ? _discountAuthorizerId : null,
             CustomerDocument);
 
@@ -552,10 +658,22 @@ public partial class CheckoutViewModel(
 
         Log.Information("Venda {Number} ({SaleId}) concluída: {Total} (repetida: {Repeated})",
             receipt.Number, receipt.SaleId, receipt.Total, receipt.AlreadyProcessed);
+        var cards = Payments.Select(p => p.Tef).OfType<TefApproval>().ToList();
+        await SettleCardsAsync(cards, confirm: true);
         ResetCart(receipt.Change > 0 ? $"Venda nº {receipt.Number} concluída. TROCO: {receipt.Change:C}" : $"Venda nº {receipt.Number} concluída.");
         await RefreshCashAsync();
         var fiscal = await IssueNfceAsync(receipt);
-        await PrintAfterSaleAsync(receipt, fiscal);
+        if (await PrintAfterSaleAsync(receipt, fiscal)) PrintCardReceipts(cards);
+    }
+
+    /// <summary>Via do cliente dos cartões, junto com o comprovante da venda.</summary>
+    private void PrintCardReceipts(IEnumerable<TefApproval> cards)
+    {
+        foreach (var card in cards.Where(c => !string.IsNullOrWhiteSpace(c.CustomerReceipt)))
+        {
+            try { tickets.PrintCardReceipt(card.CustomerReceipt!); }
+            catch (Exception ex) { Log.Error(ex, "Falha ao imprimir comprovante do cartão NSU {Nsu}", card.Nsu); }
+        }
     }
 
     /// <summary>
@@ -619,24 +737,27 @@ public partial class CheckoutViewModel(
 
     // ---------- Comprovante e vendas gravadas ----------
 
-    private async Task PrintAfterSaleAsync(SaleReceipt sale, NfceInfo? fiscal)
+    /// <returns>Verdadeiro se o comprovante foi impresso.</returns>
+    private async Task<bool> PrintAfterSaleAsync(SaleReceipt sale, NfceInfo? fiscal)
     {
         var mode = printer.Options.Mode;
-        if (mode == ReceiptPrintMode.Never) return;
+        if (mode == ReceiptPrintMode.Never) return false;
         var change = sale.Change > 0 ? $"TROCO: {sale.Change:C}\n\n" : "";
         var what = fiscal is { Status: FiscalDocumentStatus.Authorized or FiscalDocumentStatus.Contingency } ? "o DANFE da NFC-e" : "o comprovante";
-        if (mode == ReceiptPrintMode.Ask && !dialogs.Confirm($"{change}Imprimir {what}?")) return;
+        if (mode == ReceiptPrintMode.Ask && !dialogs.Confirm($"{change}Imprimir {what}?")) return false;
 
         var data = await runner.RunAsync<SalesQueryService, ReceiptData?>(q => q.GetReceiptAsync(sale.SaleId));
-        if (data is null) return;
+        if (data is null) return false;
         try
         {
             printer.Print(data, fiscal);
+            return true;
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Falha ao imprimir comprovante da venda {Number}", sale.Number);
             dialogs.ShowError($"A venda foi concluída, mas a impressão falhou: {ex.Message}\nUse F8 para reimprimir.");
+            return false;
         }
     }
 
@@ -685,6 +806,42 @@ public partial class CheckoutViewModel(
 
         StatusMessage = $"Venda nº {sale.Number} cancelada{(hasAuthorizedNfce ? " (NFC-e cancelada na SEFAZ)" : "")}. Estoque e caixa estornados.";
         await RefreshCashAsync();
+        await RefundIntegratedPaymentsAsync(sale.Id);
+    }
+
+    /// <summary>Venda cancelada paga com cartão no TEF ou Pix dinâmico: o dinheiro volta ao cliente pelo mesmo meio.</summary>
+    private async Task RefundIntegratedPaymentsAsync(Guid saleId)
+    {
+        var receipt = await runner.RunAsync<SalesQueryService, ReceiptData?>(q => q.GetReceiptAsync(saleId, default));
+        if (receipt is null) return;
+        foreach (var p in receipt.Payments.Where(p => p.IsIntegrated && p.TransactionId is not null))
+        {
+            if (p.Method == PaymentMethod.Pix)
+            {
+                dialogs.ShowInfo($"Esta venda tinha {p.Amount:C} em Pix. Faça a devolução ao cliente em Retaguarda › Pagamentos.");
+                continue;
+            }
+            if (devices.Tef is not { } tef)
+            {
+                dialogs.ShowInfo($"Estorne {p.Amount:C} no cartão (NSU {p.TransactionId}) pelo terminal da credenciadora.");
+                continue;
+            }
+            if (!dialogs.Confirm($"Estornar {p.Amount:C} no cartão do cliente agora (NSU {p.TransactionId})?")) continue;
+            var original = new TefApproval(p.Method == PaymentMethod.CreditCard ? TefCardType.Credit : TefCardType.Debit, p.Amount,
+                p.TransactionId!, p.AuthorizationCode, p.CardBrand, null, null, p.AcquirerName, null, receipt.CompletedAt, null, null);
+            try
+            {
+                var outcome = await tef.ReverseAsync(original, new Progress<string>(m => StatusMessage = m), CancellationToken.None);
+                Log.Information("Estorno TEF NSU {Nsu}: {Message}", p.TransactionId, outcome.Message);
+                if (outcome.Approved) dialogs.ShowInfo(outcome.Message);
+                else dialogs.ShowError($"Estorno não realizado: {outcome.Message}");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Falha no estorno TEF NSU {Nsu}", p.TransactionId);
+                dialogs.ShowError($"Estorno não realizado: {ex.Message}");
+            }
+        }
     }
 
     private async Task<SaleListItem?> PickRecentSaleAsync(string title, bool onlyCompleted)
@@ -787,9 +944,11 @@ public partial class CheckoutViewModel(
         if (!CanOpenAdmin) { dialogs.ShowError("Seu usuário não tem acesso à retaguarda."); return; }
         var vm = adminFactory();
         vm.AttachTicketPrinter(tickets);
+        vm.AttachPaymentDevices(devices);
         var window = new AdminWindow(vm) { Owner = System.Windows.Application.Current.MainWindow };
         await vm.LoadAsync();
         window.ShowDialog();
+        await RefreshPaymentOptionsAsync(); // o Pix pode ter sido configurado agora
     }
 
     // ---------- Auxiliares ----------

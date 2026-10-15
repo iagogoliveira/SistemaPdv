@@ -17,7 +17,7 @@
                 </Border>
                 <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="Retaguarda" Foreground="White" FontSize="20" FontWeight="Bold" FontFamily="{StaticResource DisplayFont}" />
-                    <TextBlock Text="Produtos, compras, relatórios, usuários, dados fiscais e sistema da loja" Foreground="#BFDBFE" FontSize="12" />
+                    <TextBlock Text="Produtos, compras, relatórios, usuários, fiscal, pagamentos e sistema da loja" Foreground="#BFDBFE" FontSize="12" />
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -28,7 +28,7 @@
                     <StackPanel Orientation="Horizontal">
                         <ui:IconView Data="{StaticResource Icon.Box}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"
                                      Width="18" Height="18" Margin="0,0,8,0" />
-                        <TextBlock Text="Produtos e estoque" />
+                        <TextBlock Text="Produtos" />
                     </StackPanel>
                 </TabItem.Header>
                 <Border Style="{StaticResource Card}">
@@ -720,6 +720,119 @@
                     </Border>
                 </Grid>
             </TabItem>
+            <!-- ===== Pagamentos ===== -->
+            <TabItem Visibility="{Binding ShowPaymentsTab, Converter={StaticResource BoolToVisibility}}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:IconView Data="{StaticResource Icon.Pix}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"
+                                     Width="18" Height="18" Margin="0,0,8,0" />
+                        <TextBlock Text="Pagamentos" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="390" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Configuração do Pix -->
+                    <Border Style="{StaticResource Card}" Visibility="{Binding CanManageCompany, Converter={StaticResource BoolToVisibility}}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="Pix com QR Code dinâmico" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
+                                <CheckBox Content="Pix integrado (QR dinâmico)" IsChecked="{Binding PixEnabled}" FontWeight="SemiBold" Margin="0,0,0,12" />
+                                <TextBlock Text="Provedor" Style="{StaticResource Caption}" />
+                                <ComboBox ItemsSource="{Binding PixProviders}" SelectedItem="{Binding PixProvider}" DisplayMemberPath="Label" Margin="0,4,0,10" />
+                                <TextBlock Text="Endereço da API Pix (até antes de /cob)" Style="{StaticResource Caption}" />
+                                <TextBox Text="{Binding PixBaseUrl, UpdateSourceTrigger=PropertyChanged}" Tag="https://api.seubanco.com.br/v2" Margin="0,4,0,10" />
+                                <TextBlock Text="Endereço do token OAuth (vazio = padrão do PSP)" Style="{StaticResource Caption}" />
+                                <TextBox Text="{Binding PixTokenUrl, UpdateSourceTrigger=PropertyChanged}" Tag="https://api.seubanco.com.br/oauth/token" Margin="0,4,0,10" />
+                                <Grid Margin="0,0,0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Client ID" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding PixClientId, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Client secret" Style="{StaticResource Caption}" />
+                                        <PasswordBox x:Name="PixSecretBox" PasswordChanged="OnPixSecretChanged" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Text="Já informado — deixe vazio para manter." FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,8"
+                                           Visibility="{Binding HasPixSecret, Converter={StaticResource BoolToVisibility}}" />
+                                <TextBlock Text="Certificado do PSP (mTLS)" Style="{StaticResource Caption}" Margin="0,4,0,0" />
+                                <DockPanel Margin="0,4,0,4">
+                                    <ui:IconButton DockPanel.Dock="Right" Icon="{StaticResource Icon.Search}" Content="Escolher" Command="{Binding BrowsePixCertificateCommand}" Margin="8,0,0,0" />
+                                    <TextBox Text="{Binding PixCertificateText, Mode=OneWay}" IsReadOnly="True" Tag="nenhum certificado" />
+                                </DockPanel>
+                                <TextBlock Text="Senha do certificado do PSP" Style="{StaticResource Caption}" />
+                                <PasswordBox x:Name="PixCertPasswordBox" PasswordChanged="OnPixCertPasswordChanged" Margin="0,4,0,10" />
+                                <TextBlock Text="Chave Pix da loja (recebedora)" Style="{StaticResource Caption}" />
+                                <TextBox Text="{Binding PixKey, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,10" />
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="80" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="CNPJ do PSP (NFC-e)" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding PixPspCnpj, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Nome do PSP" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding PixPspName, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Validade (s)" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding PixExpiration, UpdateSourceTrigger=PropertyChanged}" MaxLength="4" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                                <Border Background="{StaticResource BrandSoftBrush}" CornerRadius="8" Padding="12,10" Margin="0,0,0,12">
+                                    <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource TextSecondaryBrush}"
+                                               Text="Credenciais e certificado são fornecidos pelo banco/PSP da loja (API Pix padrão do Banco Central). Ficam cifrados no servidor; os caixas nunca os recebem." />
+                                </Border>
+                                <ui:IconButton Style="{StaticResource PrimaryIconButton}" Icon="{StaticResource Icon.Check}" Content="Salvar Pix"
+                                               Command="{Binding SavePixSettingsCommand}" HorizontalAlignment="Left" Margin="0" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Conciliação -->
+                    <Border Grid.Column="2" Style="{StaticResource Card}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Pix recebidos (30 dias)" Style="{StaticResource SectionTitle}" Margin="0,0,0,6" />
+                            <TextBlock DockPanel.Dock="Top" Text="{Binding PixSummary}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,10" />
+                            <Border DockPanel.Dock="Bottom" Background="{StaticResource BrandSoftBrush}" CornerRadius="8" Padding="12,10" Margin="0,12,0,0">
+                                <TextBlock Text="{Binding TefStatus}" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource TextSecondaryBrush}" />
+                            </Border>
+                            <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                                <ui:IconButton Icon="{StaticResource Icon.Search}" Content="Consultar no PSP" Command="{Binding RefreshSelectedPixCommand}" Margin="0,0,8,0" />
+                                <ui:IconButton Style="{StaticResource DangerIconButton}" Icon="{StaticResource Icon.Undo}" Content="Devolver Pix"
+                                               Command="{Binding RefundSelectedPixCommand}" Margin="0" />
+                            </WrapPanel>
+                            <DataGrid ItemsSource="{Binding PixCharges}" SelectedItem="{Binding SelectedPix}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="DATA" Binding="{Binding When}" Width="95" />
+                                    <DataGridTextColumn Header="CAIXA" Binding="{Binding Terminal}" Width="60" />
+                                    <DataGridTextColumn Header="VALOR" Binding="{Binding Amount, StringFormat=C}" Width="95" ElementStyle="{StaticResource NumericCell}" />
+                                    <DataGridTextColumn Header="SITUAÇÃO" Binding="{Binding Status}" Width="140" />
+                                    <DataGridTextColumn Header="VENDA" Binding="{Binding Sale}" Width="100" />
+                                    <DataGridTextColumn Header="PAGADOR" Binding="{Binding Payer}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
             <!-- ===== Sistema ===== -->
             <TabItem Visibility="{Binding CanManageSystem, Converter={StaticResource BoolToVisibility}}">
                 <TabItem.Header>

@@ -17,6 +17,7 @@
 | Certificado A1 | `certificado-a1.pfx` na pasta do servidor | Pasta só para Administradores/SYSTEM; senha cifrada |
 | Senha do certificado e CSC | `nfce.json` | DPAPI; nunca enviados de volta ao caixa |
 | Chave do caixa | `connection.json` (caixa) e SHA-256 no banco | DPAPI no caixa; o banco não guarda a chave |
+| Credenciais do PSP (Pix) | `pix.json` e `certificado-psp.pfx` (servidor) | Client secret e senha do certificado com DPAPI; nunca enviados ao caixa |
 | Senhas de usuários | Banco | PBKDF2-SHA256, 210 mil iterações, sal aleatório |
 
 DPAPI no escopo da máquina: o arquivo copiado para outro computador não revela nada; por isso a pasta do servidor tem
@@ -26,6 +27,13 @@ permissão restrita (qualquer processo do próprio computador com acesso ao arqu
 
 256 bits aleatórios por caixa, trocadas a cada reconexão e revogáveis na retaguarda (o caixa precisa estar fechado). Um
 caixa só pode operar o próprio caixa/gaveta: `terminalId` e `TerminalId` dos comandos são conferidos com a chave.
+
+## Pagamentos
+
+- A venda só aceita um Pix integrado **confirmado pelo PSP no servidor** — o caixa não consegue "declarar" um Pix pago.
+- Dados de cartão: o PDV não lê nem guarda número de cartão (só NSU, autorização, bandeira e os últimos dígitos
+  mascarados do comprovante); a leitura do cartão é do pinpad/TEF homologado.
+- Devolução de Pix exige a permissão de cancelamento e motivo, e fica na auditoria.
 
 ## Auditoria e logs
 

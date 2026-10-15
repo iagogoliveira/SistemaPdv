@@ -56,7 +56,9 @@ public sealed record NfceItem(
     ProductOrigin Origin, string? Csosn, string? IcmsCst, decimal IcmsRate,
     string PisCst, decimal PisRate, string CofinsCst, decimal CofinsRate);
 
-public sealed record NfcePayment(PaymentMethod Method, decimal Amount);
+/// <param name="Integrated">TEF ou Pix dinâmico (tpIntegra = 1); falso = maquininha/Pix sem integração com o PDV.</param>
+public sealed record NfcePayment(PaymentMethod Method, decimal Amount, bool Integrated = false, string? AcquirerCnpj = null,
+    string? CardBrand = null, string? AuthorizationCode = null);
 
 /// <summary>XML assinado pronto para envio.</summary>
 public sealed record SignedNfce(string Xml, string QrCodeUrl, string ConsultationUrl);

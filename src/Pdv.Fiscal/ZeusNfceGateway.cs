@@ -313,20 +313,47 @@ public sealed class ZeusNfceGateway : INfceGateway
                 PaymentMethod.Cash => FormaPagamento.fpDinheiro,
                 PaymentMethod.CreditCard => FormaPagamento.fpCartaoCredito,
                 PaymentMethod.DebitCard => FormaPagamento.fpCartaoDebito,
-                // Pix sem integração com o PSP (chave/QR estático).
-                PaymentMethod.Pix => FormaPagamento.fpPagamentoInstantaneoPIXEstatico,
+                // Pix com QR dinâmico confirmado pelo PSP (17) ou sem integração, por chave/QR estático (20).
+                PaymentMethod.Pix => p.Integrated ? FormaPagamento.fpPagamentoInstantaneoPIXDinamico : FormaPagamento.fpPagamentoInstantaneoPIXEstatico,
                 // Vale-troca da própria loja.
                 PaymentMethod.ExchangeVoucher => FormaPagamento.fpCreditoEmLoja,
                 _ => FormaPagamento.fpOutro,
             },
             xPag = p.Method == PaymentMethod.Other ? "Outros" : null,
             vPag = p.Amount,
-            // Maquininha não integrada ao PDV (tpIntegra = 2) até a Etapa 6 (TEF).
-            card = p.Method is PaymentMethod.CreditCard or PaymentMethod.DebitCard
-                ? new card { tpIntegra = TipoIntegracaoPagamento.TipNaoIntegrado }
-                : null,
+            card = BuildCard(p),
         }).ToList(),
         vTroco = d.Change > 0 ? d.Change : null,
+    };
+
+    /// <summary>
+    /// Grupo do cartão/Pix: integrado (TEF ou Pix dinâmico) informa credenciadora/PSP, bandeira e autorização;
+    /// maquininha não integrada ao PDV só informa tpIntegra = 2.
+    /// </summary>
+    private static card? BuildCard(NfcePayment p)
+    {
+        var isCard = p.Method is PaymentMethod.CreditCard or PaymentMethod.DebitCard;
+        if (!isCard && !(p.Method == PaymentMethod.Pix && p.Integrated)) return null;
+        if (!p.Integrated) return new card { tpIntegra = TipoIntegracaoPagamento.TipNaoIntegrado };
+        return new card
+        {
+            tpIntegra = TipoIntegracaoPagamento.TipIntegradoAutomacao,
+            CNPJ = string.IsNullOrWhiteSpace(p.AcquirerCnpj) ? null : p.AcquirerCnpj,
+            tBand = isCard ? Brand(p.CardBrand) : null,
+            cAut = isCard && !string.IsNullOrWhiteSpace(p.AuthorizationCode) ? p.AuthorizationCode : null,
+        };
+    }
+
+    /// <summary>Bandeiras com nome na biblioteca; as demais (Elo, Hipercard...) saem como 99 - Outros.</summary>
+    private static BandeiraCartao? Brand(string? code) => code switch
+    {
+        null or "" => null,
+        "01" => BandeiraCartao.bcVisa,
+        "02" => BandeiraCartao.bcMasterCard,
+        "03" => BandeiraCartao.bcAmericanExpress,
+        "04" => BandeiraCartao.bcSorocred,
+        "05" => BandeiraCartao.bcDinersClub,
+        _ => BandeiraCartao.bcOutros,
     };
 
     private static X509Certificate2 LoadCertificate(NfceSettings settings)

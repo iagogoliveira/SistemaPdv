@@ -130,7 +130,11 @@ public sealed class ReceiptPrinter(IConfiguration configuration)
             Pair("Descontos", "-" + r.DiscountTotal.ToString("N2", PtBr));
         }
         Pair("TOTAL R$", r.Total.ToString("N2", PtBr), bold: true);
-        foreach (var p in r.Payments) Pair(p.Label, p.Amount.ToString("N2", PtBr));
+        foreach (var p in r.Payments)
+        {
+            Pair(p.Label, p.Amount.ToString("N2", PtBr));
+            if (p.Detail is { } detail) Add("  " + detail);
+        }
         if (r.Change > 0) Pair("Troco", r.Change.ToString("N2", PtBr), bold: true);
         Line();
 

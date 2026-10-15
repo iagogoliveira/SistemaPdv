@@ -16,6 +16,14 @@ public sealed class TicketPrinter(ReceiptPrinter receiptPrinter)
 
     public void PrintVoucher(ReturnReceipt r, string companyName) => Print(BuildVoucher(r, companyName), $"Vale-troca {r.VoucherCode}");
 
+    /// <summary>Via do cliente do TEF (texto pronto da credenciadora).</summary>
+    public void PrintCardReceipt(string text)
+    {
+        var t = new Ticket(receiptPrinter.Options.PaperWidthMm);
+        foreach (var line in text.Replace("\r", "", StringComparison.Ordinal).Split('\n')) t.Add(line);
+        Print(t.Document, "Comprovante do cartão");
+    }
+
     public void PrintCashClosing(CashClosingReport report, string companyName) =>
         Print(BuildCashClosing(report, companyName), $"Fechamento de caixa {report.Session.Terminal}");
 

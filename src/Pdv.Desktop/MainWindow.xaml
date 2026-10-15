@@ -397,7 +397,7 @@
                                     <DataTemplate>
                                         <Border Background="{StaticResource BackgroundBrush}" CornerRadius="8" Padding="12,4,4,4" Margin="0,3">
                                             <DockPanel>
-                                                <Button DockPanel.Dock="Right" ToolTip="Remover pagamento" Padding="6" MinHeight="0" Margin="6,0,0,0"
+                                                <Button DockPanel.Dock="Right" ToolTip="Remover pagamento" AutomationProperties.Name="Remover pagamento" Padding="6" MinHeight="0" Margin="6,0,0,0"
                                                         Background="Transparent" BorderThickness="0"
                                                         Command="{Binding DataContext.RemovePaymentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}">

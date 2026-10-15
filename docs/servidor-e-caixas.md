@@ -33,7 +33,8 @@ Prazo padrão de uma chamada: 90 s (backup e restauração: 30 min).
 
 Somente os listados em `RemoteApi.Services` (`Pdv.Application/Remote/RemoteApi.cs`): autenticação, usuários, produtos,
 consulta de produtos, vendas, empresa, tributação, NFC-e e sua configuração, fornecedores, compras, devoluções,
-relatórios, caixa, finalização, caixas conectados, backup, informações do servidor e dados de demonstração.
+relatórios, caixa, finalização, Pix (cobrança, consulta, cancelamento, conciliação, devolução) e sua configuração,
+caixas conectados, backup, informações do servidor e dados de demonstração.
 `TerminalRegistry` (pareamento) e `DatabaseInitializer` só existem dentro do servidor.
 
 Para expor um serviço novo: crie-o na `Application` (ou uma interface implementada no servidor), registre na DI e
@@ -84,6 +85,8 @@ O aceite da Etapa 5 (3 caixas, um desligado à força no meio da venda, sem dupl
 ## Tarefas em segundo plano do servidor
 
 - **Fila da NFC-e:** a cada 2 minutos transmite notas pendentes, sem resposta ou em contingência.
+- **Acompanhamento do Pix:** a cada 30 segundos consulta no PSP as cobranças abertas da última hora, para um Pix pago com
+  o caixa desligado aparecer como pago na conciliação.
 - **Backup diário:** ver [Manual › Backup](operacao.md#backup) e [Instalação](instalacao.md#arquivos-do-servidor).
 
 ## Configuração do servidor
@@ -107,4 +110,5 @@ O aceite da Etapa 5 (3 caixas, um desligado à força no meio da venda, sem dupl
 | `connection.json` → `Pdv:Server:AccessKey` | Chave do caixa (DPAPI) |
 | `Pdv:Terminal:Name` | Nome do terminal (padrão: nome do computador) |
 | `Pdv:Receipt:Mode` / `Printer` / `PaperWidthMm` | Impressão do comprovante (`Ask`, `Always`, `Never`; impressora; 80 ou 58 mm) |
+| `Pdv:Tef:Provider` | TEF deste caixa: vazio = maquininha não integrada; `Simulado` = TEF de treinamento |
 | Variável `PDV_DATA_DIR` | Outra pasta de dados (treinamento, vários caixas de teste no mesmo PC) |

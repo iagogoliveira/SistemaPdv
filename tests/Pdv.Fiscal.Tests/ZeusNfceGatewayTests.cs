@@ -31,7 +31,7 @@ public sealed class ZeusNfceGatewayTests : IDisposable
     public void Dispose() => File.Delete(_pfxPath);
 
     private static NfceDraft Draft(FiscalEmissionType type = FiscalEmissionType.Normal, string? csosn = "102", string? cst = null,
-        string? customer = null)
+        string? customer = null, IReadOnlyList<NfcePayment>? payments = null)
     {
         var issuedAt = new DateTimeOffset(2026, 10, 14, 15, 30, 0, TimeSpan.FromHours(-3));
         var key = AccessKey.Build("SP", issuedAt, Cnpj, 65, 1, 123, type, 12345678);
@@ -45,7 +45,8 @@ public sealed class ZeusNfceGatewayTests : IDisposable
             type == FiscalEmissionType.OfflineContingency ? "SEFAZ indisponível no momento da venda" : null,
             emitter, customer, null,
             [Item(1, "Caderno 96 folhas", 2, 14.90m, 0, "7891000315507"), Item(2, "Caneta azul", 1, 2.50m, 0.25m, null)],
-            [new NfcePayment(PaymentMethod.Pix, 10m), new NfcePayment(PaymentMethod.Cash, 30m)], 7.95m, "Venda nº 1");
+            payments ?? [new NfcePayment(PaymentMethod.Pix, 10m), new NfcePayment(PaymentMethod.Cash, 30m)],
+            payments is null ? 7.95m : 0, "Venda nº 1");
     }
 
     private static XmlDocument Load(string xml)
@@ -105,6 +106,39 @@ public sealed class ZeusNfceGatewayTests : IDisposable
         Assert.StartsWith("http", signed.QrCodeUrl, StringComparison.OrdinalIgnoreCase);
         Assert.StartsWith("http", signed.ConsultationUrl, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(signed.QrCodeUrl, doc.SelectSingleNode("//n:infNFeSupl/n:qrCode", ns)!.InnerText);
+    }
+
+    [Fact]
+    public void Integrated_card_and_dynamic_pix_fill_the_card_group()
+    {
+        var draft = Draft(payments:
+        [
+            new NfcePayment(PaymentMethod.CreditCard, 20m, Integrated: true, AcquirerCnpj: "11222333000181", CardBrand: "02", AuthorizationCode: "654321"),
+            new NfcePayment(PaymentMethod.DebitCard, 5m, Integrated: true, AcquirerCnpj: "11222333000181", CardBrand: "06", AuthorizationCode: "111222"),
+            new NfcePayment(PaymentMethod.Pix, 4.05m, Integrated: true, AcquirerCnpj: "99999999000191"),
+            new NfcePayment(PaymentMethod.CreditCard, 3m),
+        ]);
+        var doc = Load(_gateway.BuildAndSign(draft, _settings).Xml);
+        var ns = Ns(doc);
+        string Value(int pag, string path) => doc.SelectSingleNode($"//n:detPag[{pag}]/{path}", ns)?.InnerText ?? "";
+
+        // Crédito pelo TEF: tpIntegra 1, credenciadora, bandeira Mastercard e autorização.
+        Assert.Equal("03", Value(1, "n:tPag"));
+        Assert.Equal("1", Value(1, "n:card/n:tpIntegra"));
+        Assert.Equal("11222333000181", Value(1, "n:card/n:CNPJ"));
+        Assert.Equal("02", Value(1, "n:card/n:tBand"));
+        Assert.Equal("654321", Value(1, "n:card/n:cAut"));
+        // Débito Elo: bandeira sem nome na biblioteca sai como 99 (outras).
+        Assert.Equal("04", Value(2, "n:tPag"));
+        Assert.Equal("99", Value(2, "n:card/n:tBand"));
+        // Pix confirmado pelo PSP: QR dinâmico (17), integrado, CNPJ do PSP, sem bandeira.
+        Assert.Equal("17", Value(3, "n:tPag"));
+        Assert.Equal("1", Value(3, "n:card/n:tpIntegra"));
+        Assert.Equal("99999999000191", Value(3, "n:card/n:CNPJ"));
+        Assert.Equal("", Value(3, "n:card/n:tBand"));
+        // Maquininha não integrada: só tpIntegra 2.
+        Assert.Equal("2", Value(4, "n:card/n:tpIntegra"));
+        Assert.Equal("", Value(4, "n:card/n:cAut"));
     }
 
     [Fact]

@@ -18,6 +18,11 @@ Itens conhecidos que ficam fora das etapas em andamento e serão retomados antes
 - Validação dos perfis tributários, NCMs e da aplicação de IBS/CBS (reforma tributária) por regime.
 - Lojas para o piloto (3 a 5) e definição do segmento (impacta balança/produtos por peso).
 
+**Pagamentos (complementos da Etapa 6)**
+- Adaptador TEF real (SiTef ou PayGo, conforme a credenciadora) com homologação; parcelamento e pré-autorização.
+- Homologação do Pix com o PSP da loja; webhook do PSP (exige endereço público) além da consulta periódica.
+- Bandeiras além de Visa/Master/Amex/Sorocred/Diners na NFC-e (a biblioteca fiscal só tem essas: as demais saem como 99).
+
 **Fiscal (complementos da Etapa 3)**
 - Inutilização de numeração; validação local pelos XSD oficiais; tributos aproximados (Lei 12.741/IBPT).
 - CSOSN 101/201/202/203/900 e CST 10/20/30/51/70/90; grupos IBS/CBS.
@@ -116,10 +121,24 @@ testes do servidor (3 caixas simultâneos com reenvio, conexão cortada no envio
 3 caixas: caixa desligado com itens no carrinho e durante a finalização, diário de venda não enviada e já gravada,
 servidor desligado e religado — 7 vendas, 7 chaves, 7 números, nenhuma duplicada.
 
-## Etapa 6 — Pagamentos integrados
+## Etapa 6 — Pagamentos integrados  🟡 implementada; falta homologar com o PSP e a credenciadora reais
 
 - Pix com QR Code dinâmico e confirmação automática (API do PSP).
 - TEF (SiTef, PayGo ou outro, conforme a adquirente dos pilotos) e registro de NSU/bandeira na NFC-e.
+
+Feito: **Pix dinâmico** pela API Pix padronizada pelo Banco Central (OAuth2 + certificado do PSP, `cob`, consulta,
+remoção e devolução) com PSP simulado para treinamento; cobrança guardada no servidor, QR no caixa com confirmação
+automática, acompanhamento de cobranças abertas pelo servidor, venda só aceita Pix confirmado e um Pix quita uma única
+venda; conciliação na retaguarda (Pix pago sem venda ou de venda cancelada → devolução). **TEF** no caixa por uma porta
+comum em três fases (aprovar, confirmar após gravar a venda, desfazer), com registro de pendências no disco (queda de
+energia não deixa cliente cobrado sem venda), estorno ao cancelar a venda e TEF simulado; NSU, autorização, bandeira e
+credenciadora gravados no pagamento, no comprovante e na **NFC-e** (grupo `card` com `tpIntegra = 1`; Pix dinâmico como
+`tPag 17`). Percorrido pela interface: Pix pago automaticamente, crédito aprovado, débito negado, estorno no
+cancelamento, cartão desfeito após o caixa ser desligado, Pix sem venda devolvido.
+
+Falta (depende da loja): credenciais do PSP da loja para homologar o Pix real; escolha da credenciadora/TEF dos pilotos
+para escrever o adaptador real (SiTef/CliSiTef ou PayGo/PGWebLib) e homologá-lo; validar na SEFAZ o grupo `card` do Pix
+dinâmico (CNPJ do PSP).
 
 ## Etapa 7 — Comercialização
 

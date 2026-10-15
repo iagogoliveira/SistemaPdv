@@ -227,7 +227,7 @@ o `pg_dump` local; sem ele, usa o do contêiner `pdv-postgres` (`PDV_TEST_PG_CON
 ## Instalador
 
 ```bash
-powershell -ExecutionPolicy Bypass -File installer/build.ps1 -Version 0.5.0
+powershell -ExecutionPolicy Bypass -File installer/build.ps1 -Version 0.6.0
 ```
 
 O script publica caixa e servidor **self-contained** para win-x64 (não exigem .NET instalado) em
@@ -264,6 +264,10 @@ O servidor aplica migrações pendentes ao iniciar (`DatabaseInitializer`).
 **V0.1 Fundação** — feito: camadas, migrações, empresa/loja/terminal iniciais, autenticação e perfis, logs,
 tratamento global de erros, backup/restauração com tela e agendamento (Etapa 5), cadastro de usuários e da empresa,
 tela de conexão com o servidor, instalador versionado.
+
+**V0.5 Pagamentos integrados (Etapa 6)** — feito: Pix com QR dinâmico (API Pix do Banco Central) e TEF com
+confirmação/desfazimento, NSU e bandeira na NFC-e, conciliação de Pix; falta o adaptador TEF da credenciadora e homologar
+com o PSP da loja.
 
 **V0.4 Vários caixas (Etapa 5)** — feito: servidor central como serviço do Windows, conexão de caixas por código,
 controle de versão, diário da venda contra queda de energia, segredos cifrados com DPAPI, retaguarda › Sistema.

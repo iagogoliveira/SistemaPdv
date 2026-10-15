@@ -335,6 +335,31 @@ public sealed class NfceQueueWorker(IServiceScopeFactory scopes, ILogger<NfceQue
     }
 }
 
+/// <summary>
+/// Acompanha cobranças Pix abertas a cada 30 s: um Pix pago com o caixa desligado ou com a janela fechada aparece como pago
+/// na conciliação (Retaguarda › Pagamentos) e pode ser usado ou devolvido.
+/// </summary>
+public sealed class PixWatchWorker(IServiceScopeFactory scopes, ILogger<PixWatchWorker> log) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+            try
+            {
+                await using var scope = scopes.CreateAsyncScope();
+                var paid = await scope.ServiceProvider.GetRequiredService<Application.Payments.PixService>().RefreshOpenAsync(stoppingToken);
+                if (paid > 0) log.LogInformation("{Count} Pix confirmado(s) pelo acompanhamento do servidor", paid);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                log.LogWarning(ex, "Falha ao acompanhar cobranças Pix");
+            }
+        }
+    }
+}
+
 public sealed class ServerAdmin(ServerSettings settings, PermissionChecker permissions) : IServerAdmin
 {
     public async Task<ServerInfo> GetInfoAsync(Guid actorId, CancellationToken ct = default)

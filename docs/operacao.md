@@ -33,6 +33,21 @@ Todas as teclas também são botões na tela (mouse ou toque).
 
 Valor recebido vazio = valor que falta. O troco aparece em destaque e na mensagem de venda concluída.
 
+### Pix e cartão integrados
+
+- **Pix** (quando ativado em Retaguarda › Pagamentos): ao lançar, abre o QR Code com o valor; o cliente paga no app do
+  banco e a janela fecha sozinha quando o PSP confirma. "Cancelar Pix" desiste (se o cliente pagou no último instante,
+  o pagamento vale). QR vencido: "Gerar novo QR".
+- **Cartão** (quando o caixa tem TEF): ao lançar crédito ou débito, o pinpad conduz a transação; aprovado, o pagamento
+  entra com bandeira e NSU; negado, a mensagem aparece e outra forma pode ser usada. A via do cliente é impressa junto
+  com o comprovante.
+- Remover um pagamento com cartão desfaz a transação no TEF. Remover um Pix já recebido avisa que o valor deve ser
+  devolvido em Retaguarda › Pagamentos.
+- Se o caixa desligar com cartões aprovados e a venda não concluída, ao abrir de novo eles são **desfeitos** (o cliente
+  não é cobrado) e o operador é avisado.
+- Ao cancelar (F7) uma venda paga no TEF, o caixa oferece o **estorno** no cartão; paga com Pix, a devolução é feita na
+  retaguarda.
+
 ### Situações especiais
 
 - **"Não foi possível confirmar a venda com o servidor":** não altere a venda; pressione F10 de novo quando a conexão
@@ -51,13 +66,14 @@ escolha a forma "Vale-troca" e digite o código (pode ser usado em parte).
 
 | Aba | Permissão | O que faz |
 |---|---|---|
-| Produtos e estoque | produtos / estoque | Cadastro, códigos de barras, preço, custo, estoque mínimo, entradas, ajustes, histórico |
+| Produtos | produtos / estoque | Cadastro, códigos de barras, preço, custo, estoque mínimo, entradas, ajustes, histórico |
 | Compras | produtos / estoque | Fornecedores, entrada manual com vários itens, importação do XML da NF-e |
 | Relatórios | relatórios | Ver abaixo |
 | Usuários | usuários | Usuários, perfis, senhas, ativação |
 | Empresa | empresa | Dados fiscais da empresa e da loja |
 | Tributação | empresa | Perfis tributários |
 | NFC-e | empresa | Configuração da emissão, teste da SEFAZ, notas pendentes/rejeitadas, DANFE, cancelamento |
+| Pagamentos | empresa / relatórios | Configuração do Pix integrado; Pix recebidos (30 dias), consulta ao PSP e devolução; TEF deste caixa |
 | Sistema | sistema | Código de conexão, caixas conectados, backup e restauração |
 
 ## Relatórios

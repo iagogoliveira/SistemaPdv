@@ -6,6 +6,7 @@ using Pdv.Domain.Catalog;
 using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Inventory;
+using Pdv.Domain.Payments;
 using Pdv.Domain.Purchases;
 using Pdv.Domain.Sales;
 using Pdv.Domain.Stores;
@@ -35,6 +36,7 @@ public sealed class PdvDbContext(DbContextOptions<PdvDbContext> options) : DbCon
     public DbSet<SupplierProduct> SupplierProducts => Set<SupplierProduct>();
     public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
     public DbSet<ExchangeVoucher> ExchangeVouchers => Set<ExchangeVoucher>();
+    public DbSet<PixCharge> PixCharges => Set<PixCharge>();
 
     public const string SaleNumberSequence = "SaleNumbers";
 

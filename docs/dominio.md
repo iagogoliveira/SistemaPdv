@@ -59,6 +59,17 @@ Senhas: PBKDF2-SHA256 com 210 mil iterações e sal aleatório.
 - Cancelamento com motivo e supervisor: estorna estoque e dinheiro por lançamentos compensatórios; se houver NFC-e
   autorizada, ela é cancelada na SEFAZ antes.
 
+## Pagamentos integrados
+
+- **Pix dinâmico** (`PixCharge`): cobrança criada pelo servidor no PSP com `txid` próprio (26–35 letras e números),
+  validade configurável (padrão 5 min) e código "copia e cola". Estados: aguardando → pago (com EndToEndId) / expirado /
+  cancelado; pago → devolvido. A venda só aceita a cobrança **paga**, com o **mesmo valor**, e cada cobrança quita **uma
+  única venda** (controle de concorrência). Reabrir o QR do mesmo carrinho e valor reaproveita a cobrança aberta.
+- **Cartão pelo TEF**: o pagamento guarda NSU, autorização, bandeira (código da NFC-e: 01 Visa, 02 Mastercard, 03 Amex,
+  06 Elo…), CNPJ e nome da credenciadora. Só cartão e Pix podem ser "integrados".
+- Sem TEF ou sem Pix integrado, cartão e Pix continuam como antes (maquininha separada / conferência pelo operador).
+- Venda cancelada paga por TEF: o caixa oferece o estorno no pinpad; paga por Pix: devolução pela retaguarda.
+
 ## Devolução e troca
 
 - Parcial, por item e quantidade, limitada ao que ainda não foi devolvido.

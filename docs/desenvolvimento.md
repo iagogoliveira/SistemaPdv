@@ -23,6 +23,9 @@ dotnet run --project src/Pdv.Server
 dotnet run --project src/Pdv.Desktop
 ```
 
+Pagamentos em treinamento: Pix com o provedor "Simulado" (Retaguarda › Pagamentos; o pagamento é "recebido" em ~8 s) e
+TEF com `Pdv__Tef__Provider=Simulado` no caixa (valores terminados em ,13 são negados).
+
 O perfil `Development` (`Properties/launchSettings.json`) do servidor usa o banco local `sistema_pdv`, produtos de
 demonstração (`7891000000011`, `…028`, `…035`, `…042`, `…059`) e a SEFAZ simulada. O caixa pergunta o servidor
 (`localhost`) e conecta sem código.
@@ -46,7 +49,7 @@ sem ele, o do contêiner `pdv-postgres` (`PDV_TEST_PG_CONTAINER`).
 | `Pdv.Domain.Tests` | Regras puras |
 | `Pdv.Infrastructure.Tests` | Serviços contra PostgreSQL (inclui o "dia completo de loja" da Etapa 4) |
 | `Pdv.Fiscal.Tests` | Chave de acesso, XML, assinatura |
-| `Pdv.Server.Tests` | Servidor em memória (TestServer) + cliente real: pareamento, versões, isolamento entre caixas, idempotência pela rede, 3 caixas simultâneos, contrato remoto, backup/restauração, DPAPI |
+| `Pdv.Server.Tests` | Servidor em memória (TestServer) + cliente real: pareamento, versões, isolamento entre caixas, idempotência pela rede, 3 caixas simultâneos, contrato remoto, backup/restauração, DPAPI; TEF e pendências |
 
 Testes de interface (UI Automation) são executados manualmente a cada etapa; capturam só as janelas do PDV e usam banco
 descartável.
@@ -66,7 +69,7 @@ O servidor aplica as migrações ao iniciar. Nunca altere uma migração já pub
 ## Instalador
 
 ```bash
-powershell -ExecutionPolicy Bypass -File installer/build.ps1 -Version 0.5.0
+powershell -ExecutionPolicy Bypass -File installer/build.ps1 -Version 0.6.0
 ```
 
 Publica caixa e servidor (self-contained, win-x64) em `artifacts/publish/{caixa,servidor}` e compila

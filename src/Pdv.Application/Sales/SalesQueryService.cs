@@ -7,9 +7,15 @@ public sealed record SaleListItem(Guid Id, long Number, DateTimeOffset? Complete
 
 public sealed record ReceiptLine(int LineNumber, string Description, decimal Quantity, string Unit, decimal UnitPrice, decimal Discount, decimal Total);
 
-public sealed record ReceiptPayment(PaymentMethod Method, decimal Amount)
+public sealed record ReceiptPayment(PaymentMethod Method, decimal Amount, bool IsIntegrated = false, string? TransactionId = null,
+    string? AuthorizationCode = null, string? CardBrand = null, string? AcquirerName = null)
 {
     public string Label => PaymentLabels.For(Method);
+
+    /// <summary>Linha de detalhe no comprovante: NSU/autorização do cartão ou identificação do Pix.</summary>
+    public string? Detail => !IsIntegrated || TransactionId is null ? null
+        : Method == PaymentMethod.Pix ? $"Pix {TransactionId}"
+        : $"NSU {TransactionId}{(AuthorizationCode is null ? "" : $" AUT {AuthorizationCode}")}";
 }
 
 /// <summary>Dados do comprovante não fiscal, independentes da forma de impressão.</summary>
@@ -86,7 +92,7 @@ public sealed class SalesQueryService(IPdvDbContext db)
             sale.Items.OrderBy(i => i.LineNumber)
                 .Select(i => new ReceiptLine(i.LineNumber, i.Description, i.Quantity, i.Unit, i.UnitPrice, i.Discount, i.Total)).ToList(),
             sale.Subtotal, sale.DiscountTotal, sale.Total,
-            sale.Payments.Select(p => new ReceiptPayment(p.Method, p.Amount)).ToList(),
+            sale.Payments.Select(p => new ReceiptPayment(p.Method, p.Amount, p.IsIntegrated, p.TransactionId, p.AuthorizationCode, p.CardBrand, p.AcquirerName)).ToList(),
             sale.ChangeAmount, sale.Status, sale.CustomerDocument, address);
     }
 }

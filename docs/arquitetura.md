@@ -52,6 +52,8 @@ flowchart LR
     end
     Client -- "HTTP na rede local (porta 5080)" --> Server
     Fiscal -- "HTTPS + certificado A1" --> SEFAZ(("SEFAZ"))
+    Server -- "API Pix (OAuth2 + mTLS)" --> PSP(("PSP / banco"))
+    Desktop -- "TEF" --> Pinpad(("Pinpad / credenciadora"))
 ```
 
 Regras de dependência: `Domain` não depende de nada; `Application` depende só de `Domain` (e das abstrações do
@@ -111,3 +113,5 @@ parâmetros/retornos (só records de dados), coleções como `IReadOnlyList`/`IR
 | UUID v7 como chave | Ordenável por tempo, menos fragmentação de índice |
 | `decimal` e `Money.Round` único | 2 casas, meio para cima, por linha de item: total exibido = total gravado |
 | Biblioteca fiscal própria (DFe.NET) | Sem custo por nota; regras fiscais versionadas no código |
+| Pix pela API padronizada do Banco Central | Um único adaptador serve à maioria dos bancos/PSPs; credenciais só no servidor |
+| TEF no caixa, em três fases | O pinpad fica no caixa; confirmar só após gravar a venda evita cobrança sem venda |

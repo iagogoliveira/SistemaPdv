@@ -39,6 +39,15 @@ No computador principal o instalador também:
 Na primeira abertura de cada caixa, informe o código de conexão (Retaguarda › Sistema no principal, ou
 `"C:\Program Files\SistemaPDV\Servidor\SistemaPDV.Servidor.exe" --codigo` executado como administrador).
 
+## Pagamentos integrados
+
+- **Pix:** o banco/PSP da loja fornece client ID, client secret, certificado (mTLS) e os endereços da API Pix e do
+  token; a chave Pix recebedora é da loja. Configure em Retaguarda › Pagamentos (computador principal com acesso à
+  internet). O servidor consulta o PSP; não é preciso abrir portas na internet.
+- **TEF:** instale o cliente TEF e o pinpad da credenciadora em cada caixa e informe o provedor em
+  `%ProgramData%\SistemaPDV\appsettings.json` (`{ "Pdv": { "Tef": { "Provider": "..." } } }`). Nesta versão há o
+  provedor `Simulado` (treinamento); o adaptador da credenciadora dos pilotos é a próxima entrega.
+
 ## Atualização
 
 Atualize **o computador principal e todos os caixas para a mesma versão** (caixa com versão diferente não opera). O
@@ -53,7 +62,8 @@ antigo — que tinha a senha do banco — é substituído pelo novo formato.
 | Arquivo | Conteúdo |
 |---|---|
 | `connection.json` | Endereço do servidor e chave do caixa (cifrada) |
-| `appsettings.json` | Ajustes opcionais (impressora: `{ "Pdv": { "Receipt": { "Printer": "..." } } }`) |
+| `appsettings.json` | Ajustes opcionais: impressora (`Pdv:Receipt:Printer`) e TEF (`Pdv:Tef:Provider`) |
+| `tef-pendentes.json` | Cartões aprovados aguardando confirmação (temporário) |
 | `venda-em-andamento.json` | Diário da venda em conclusão (temporário) |
 | `logs\pdv-AAAAMMDD.log` | Logs técnicos (30 dias) |
 
@@ -65,6 +75,7 @@ antigo — que tinha a senha do banco — é substituído pelo novo formato.
 |---|---|
 | `server.json` | Conexão com o banco (senha cifrada) e código de conexão (cifrado) |
 | `nfce.json`, `certificado-a1.pfx` | Configuração da NFC-e (senha e CSC cifrados) e certificado A1 |
+| `pix.json`, `certificado-psp.pfx` | Pix integrado (client secret e senha do certificado cifrados) e certificado do PSP |
 | `backup.json` | Configuração e situação do backup |
 | `backups\pdv-AAAAMMDD-HHMMSS.backup` | Backups (formato custom do `pg_dump`) |
 | `logs\servidor-AAAAMMDD.log` | Logs do servidor (60 dias) |

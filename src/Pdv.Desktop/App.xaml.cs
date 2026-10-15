@@ -231,6 +231,15 @@ public partial class App : System.Windows.Application
         builder.Services.AddSingleton(client);
         builder.Services.AddSingleton<ServerRunner>();
         builder.Services.AddSingleton(new SaleJournal(LocalSettings.Folder));
+        // TEF do caixa: "Simulado" (treinamento) ou vazio = maquininha não integrada. Adaptadores reais (SiTef/PayGo)
+        // entram conforme a credenciadora da loja.
+        var tefProvider = builder.Configuration["Pdv:Tef:Provider"];
+        builder.Services.AddSingleton(new PaymentDevices(tefProvider switch
+        {
+            SimulatedTefClient.ProviderName => new TefCoordinator(new SimulatedTefClient(), new TefPendingStore(LocalSettings.Folder)),
+            null or "" => null,
+            _ => throw new InvalidOperationException($"TEF desconhecido em Pdv:Tef:Provider: {tefProvider}."),
+        }));
         builder.Services.AddSingleton<AppState>();
         builder.Services.AddSingleton<ReceiptPrinter>();
         builder.Services.AddSingleton<TicketPrinter>();

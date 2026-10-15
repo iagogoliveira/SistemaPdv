@@ -1,4 +1,4 @@
-﻿; Instalador do Sistema PDV (Inno Setup 6). Gere com installer\build.ps1.
+; Instalador do Sistema PDV (Inno Setup 6). Gere com installer\build.ps1.
 ; Dois tipos: "Computador principal" (servidor da loja + caixa) e "Somente caixa".
 
 #define AppName "Sistema PDV"
@@ -7,7 +7,7 @@
 #define ServiceName "SistemaPDV.Servidor"
 #define ServerPort "5080"
 #ifndef AppVersion
-  #define AppVersion "0.5.0"
+  #define AppVersion "0.6.0"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish"

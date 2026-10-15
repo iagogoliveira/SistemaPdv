@@ -1,11 +1,11 @@
-﻿<#
+<#
 .SYNOPSIS
   Publica o Sistema PDV (self-contained, win-x64) e gera o instalador com Inno Setup 6.
 .EXAMPLE
-  .\installer\build.ps1 -Version 0.5.0
+  .\installer\build.ps1 -Version 0.6.0
 #>
 param(
-    [string]$Version = "0.5.0",
+    [string]$Version = "0.6.0",
     [switch]$SkipInstaller
 )
 

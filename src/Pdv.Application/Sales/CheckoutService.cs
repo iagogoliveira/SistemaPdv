@@ -13,7 +13,10 @@ namespace Pdv.Application.Sales;
 public sealed record CheckoutItem(Guid ProductId, decimal Quantity, decimal Discount = 0);
 
 /// <param name="Reference">Para vale-troca: o código do vale.</param>
-public sealed record CheckoutPayment(PaymentMethod Method, decimal Amount, string? Reference = null);
+/// <param name="Integration">Cartão aprovado pelo TEF do caixa (NSU, autorização, bandeira, credenciadora).</param>
+/// <param name="PixChargeId">Pix com QR dinâmico: a cobrança confirmada pelo PSP.</param>
+public sealed record CheckoutPayment(PaymentMethod Method, decimal Amount, string? Reference = null,
+    PaymentIntegration? Integration = null, Guid? PixChargeId = null);
 
 /// <param name="ClientRequestId">Gerado pelo terminal quando o carrinho é iniciado; reenviar a mesma chave é seguro.</param>
 public sealed record FinalizeSaleCommand(
@@ -28,7 +31,7 @@ public sealed record FinalizeSaleCommand(
 
 public sealed record SaleReceipt(Guid SaleId, long Number, decimal Total, decimal Paid, decimal Change, bool AlreadyProcessed);
 
-public sealed class CheckoutService(IPdvDbContext db, PermissionChecker permissions, TimeProvider clock)
+public sealed class CheckoutService(IPdvDbContext db, PermissionChecker permissions, Payments.IPixSettingsStore pixSettings, TimeProvider clock)
 {
     public async Task<Result<SaleReceipt>> FinalizeAsync(FinalizeSaleCommand command, CancellationToken ct = default)
     {
@@ -154,6 +157,25 @@ public sealed class CheckoutService(IPdvDbContext db, PermissionChecker permissi
                     ?? throw new DomainException($"Vale-troca {payment.Reference} não encontrado.");
                 voucher.Redeem(payment.Amount, now);
                 sale.AddPayment(payment.Method, payment.Amount, voucher.Code);
+            }
+            else if (payment.PixChargeId is { } chargeId)
+            {
+                // Pix dinâmico: só entra confirmado pelo PSP, com o mesmo valor, e quita uma única venda.
+                if (payment.Method != PaymentMethod.Pix) throw new DomainException("Cobrança Pix em pagamento que não é Pix.");
+                var charge = await db.PixCharges.SingleOrDefaultAsync(c => c.Id == chargeId, ct)
+                    ?? throw new DomainException("Cobrança Pix não encontrada.");
+                charge.LinkToSale(sale.Id, payment.Amount);
+                var psp = pixSettings.Load();
+                sale.AddPayment(PaymentMethod.Pix, payment.Amount, charge.Txid,
+                    new PaymentIntegration(charge.EndToEndId!, null, null, psp.PspCnpj, psp.PspName));
+            }
+            else if (payment.Integration is { } tef)
+            {
+                if (payment.Method is not (PaymentMethod.CreditCard or PaymentMethod.DebitCard))
+                    throw new DomainException("Só pagamentos com cartão podem vir do TEF.");
+                if (string.IsNullOrWhiteSpace(tef.TransactionId)) throw new DomainException("Pagamento com cartão sem NSU.");
+                sale.AddPayment(payment.Method, payment.Amount, payment.Reference,
+                    tef with { CardBrand = PaymentIntegration.NormalizeBrand(tef.CardBrand) });
             }
             else
             {

@@ -6,6 +6,7 @@ using Pdv.Domain.Catalog;
 using Pdv.Domain.Fiscal;
 using Pdv.Domain.Identity;
 using Pdv.Domain.Inventory;
+using Pdv.Domain.Payments;
 using Pdv.Domain.Purchases;
 using Pdv.Domain.Sales;
 using Pdv.Domain.Stores;
@@ -219,6 +220,41 @@ internal sealed class SaleReturnItemConfiguration : IEntityTypeConfiguration<Sal
         b.Property(x => x.Description).HasMaxLength(120);
         b.Property(x => x.Quantity).HasPrecision(18, 3);
         b.HasOne<Product>().WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class PixChargeConfiguration : IEntityTypeConfiguration<PixCharge>
+{
+    public void Configure(EntityTypeBuilder<PixCharge> b)
+    {
+        b.Property(x => x.Txid).HasMaxLength(35);
+        b.HasIndex(x => x.Txid).IsUnique();
+        b.Property(x => x.Amount).HasPrecision(18, 2);
+        b.Property(x => x.Provider).HasMaxLength(20);
+        b.Property(x => x.CopyPaste).HasMaxLength(512);
+        b.Property(x => x.EndToEndId).HasMaxLength(32);
+        b.Property(x => x.PayerName).HasMaxLength(140);
+        b.Property(x => x.Message).HasMaxLength(250);
+        b.HasIndex(x => new { x.TerminalId, x.ClientRequestId });
+        b.HasIndex(x => new { x.Status, x.CreatedAt });
+        b.HasOne<Terminal>().WithMany().HasForeignKey(x => x.TerminalId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<Sale>().WithMany().HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Restrict);
+        // Confirmação pelo PSP, uso na venda e devolução não podem se sobrepor.
+        b.Property<uint>("Version").IsRowVersion();
+    }
+}
+
+internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
+{
+    public void Configure(EntityTypeBuilder<Payment> b)
+    {
+        b.Property(x => x.Amount).HasPrecision(18, 2);
+        b.Property(x => x.Reference).HasMaxLength(40);
+        b.Property(x => x.TransactionId).HasMaxLength(40);
+        b.Property(x => x.AuthorizationCode).HasMaxLength(20);
+        b.Property(x => x.CardBrand).HasMaxLength(2);
+        b.Property(x => x.AcquirerCnpj).HasMaxLength(14);
+        b.Property(x => x.AcquirerName).HasMaxLength(60);
     }
 }
 

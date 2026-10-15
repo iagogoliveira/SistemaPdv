@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Pdv.Application.Payments;
+using Pdv.Infrastructure.Payments;
 using Pdv.Application;
 using Pdv.Infrastructure.Persistence;
 using Pdv.Infrastructure.Security;
@@ -17,6 +20,10 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<IPgTools, LocalPgTools>();
         services.AddSingleton(sp => new BackupService(connectionString, sp.GetRequiredService<IPgTools>()));
+        // Pix: provedores disponíveis; a configuração vem do servidor (FilePixSettingsStore) ou fica desligada.
+        services.TryAddSingleton<IPixSettingsStore, InMemoryPixSettingsStore>();
+        services.AddSingleton<IPixProvider, SimulatedPixProvider>();
+        services.AddSingleton<IPixProvider>(_ => new BacenPixProvider());
         return services;
     }
 

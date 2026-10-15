@@ -6,6 +6,7 @@ using Pdv.Application.Catalog;
 using Pdv.Application.Fiscal;
 using Pdv.Application.Identity;
 using Pdv.Application.Maintenance;
+using Pdv.Application.Payments;
 using Pdv.Application.Purchases;
 using Pdv.Application.Reports;
 using Pdv.Application.Sales;
@@ -37,6 +38,7 @@ public static class RemoteApi
         typeof(SalesQueryService), typeof(CompanySettingsService), typeof(TaxProfileService), typeof(NfceService),
         typeof(NfceConfigurationService), typeof(SupplierService), typeof(PurchaseService), typeof(ReturnService),
         typeof(ReportService), typeof(CashService), typeof(CheckoutService), typeof(TerminalAdminService),
+        typeof(PixService), typeof(PixConfigurationService),
         typeof(IBackupManager), typeof(IServerAdmin), typeof(IDemoDataSeeder),
     ];
 

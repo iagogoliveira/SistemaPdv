@@ -48,6 +48,20 @@ flowchart TD
   dentro do prazo configurado (padrão 30 minutos).
 - DANFE NFC-e com QR Code (QRCoder), impresso em bobina.
 
+## Formas de pagamento na NFC-e
+
+| Pagamento no PDV | `tPag` | Grupo `card` |
+|---|---|---|
+| Dinheiro | 01 | — |
+| Crédito / débito pelo **TEF** | 03 / 04 | `tpIntegra = 1`, `CNPJ` da credenciadora, `tBand`, `cAut` |
+| Crédito / débito em maquininha separada | 03 / 04 | `tpIntegra = 2` |
+| Pix com **QR dinâmico** confirmado pelo PSP | 17 | `tpIntegra = 1`, `CNPJ` do PSP (configurado na retaguarda) |
+| Pix sem integração | 20 | — |
+| Vale-troca | 05 (crédito loja) | — |
+
+A biblioteca fiscal só nomeia as bandeiras Visa, Mastercard, Amex, Sorocred e Diners; as demais (Elo, Hipercard…) saem
+como `99`. O grupo `card` do Pix dinâmico deve ser validado na homologação da UF.
+
 ## SEFAZ simulada
 
 Com `Pdv:Fiscal:Simulator = true` (ligado no ambiente Development do servidor), o XML é montado e assinado de verdade,

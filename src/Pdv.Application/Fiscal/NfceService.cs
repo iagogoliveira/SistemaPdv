@@ -297,7 +297,7 @@ public sealed class NfceService(
         var sale = context.Sale;
         var draft = new NfceDraft(settings.Environment, type, key, randomCode, document.Series, document.Number, issuedAt, reason,
             context.Emitter, sale.CustomerDocument, sale.CustomerName, context.Items,
-            sale.Payments.Select(p => new NfcePayment(p.Method, p.Amount)).ToList(), sale.ChangeAmount,
+            sale.Payments.Select(p => new NfcePayment(p.Method, p.Amount, p.IsIntegrated, p.AcquirerCnpj, p.CardBrand, p.AuthorizationCode)).ToList(), sale.ChangeAmount,
             $"Venda nº {sale.Number}");
 
         var signed = gateway.BuildAndSign(draft, settings);

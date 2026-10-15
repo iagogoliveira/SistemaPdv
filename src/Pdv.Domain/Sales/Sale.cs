@@ -134,10 +134,10 @@ public class Sale : Entity
         DiscountAuthorizedByUserId = userId;
     }
 
-    public Payment AddPayment(PaymentMethod method, decimal amount, string? reference = null)
+    public Payment AddPayment(PaymentMethod method, decimal amount, string? reference = null, PaymentIntegration? integration = null)
     {
         EnsureDraft();
-        var payment = new Payment(Id, method, amount, reference);
+        var payment = new Payment(Id, method, amount, reference, integration);
         _payments.Add(payment);
         return payment;
     }
@@ -263,13 +263,24 @@ public class Payment : Entity
 {
     private Payment() { }
 
-    internal Payment(Guid saleId, PaymentMethod method, decimal amount, string? reference = null)
+    internal Payment(Guid saleId, PaymentMethod method, decimal amount, string? reference = null, PaymentIntegration? integration = null)
     {
         Reference = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim();
         if (Money.Round(amount) <= 0) throw new DomainException("Valor do pagamento deve ser positivo.");
+        if (integration is not null && method is not (PaymentMethod.CreditCard or PaymentMethod.DebitCard or PaymentMethod.Pix))
+            throw new DomainException("Só cartão e Pix podem ser pagamentos integrados.");
         SaleId = saleId;
         Method = method;
         Amount = Money.Round(amount);
+        if (integration is not null)
+        {
+            IsIntegrated = true;
+            TransactionId = integration.TransactionId;
+            AuthorizationCode = integration.AuthorizationCode;
+            CardBrand = integration.CardBrand;
+            AcquirerCnpj = integration.AcquirerCnpj;
+            AcquirerName = integration.AcquirerName;
+        }
     }
 
     public Guid SaleId { get; private set; }
@@ -278,4 +289,31 @@ public class Payment : Entity
 
     /// <summary>Identificação do meio, ex.: código do vale-troca usado.</summary>
     public string? Reference { get; private set; }
+
+    /// <summary>Pago pelo TEF ou pelo Pix com QR dinâmico (tpIntegra = 1 na NFC-e); falso = maquininha/Pix sem integração.</summary>
+    public bool IsIntegrated { get; private set; }
+
+    /// <summary>NSU do cartão ou EndToEndId do Pix.</summary>
+    public string? TransactionId { get; private set; }
+
+    public string? AuthorizationCode { get; private set; }
+
+    /// <summary>Bandeira no código da NFC-e (01 Visa, 02 Mastercard, 03 Amex, 06 Elo, 99 outras...).</summary>
+    public string? CardBrand { get; private set; }
+
+    /// <summary>CNPJ da credenciadora (cartão) ou do PSP (Pix).</summary>
+    public string? AcquirerCnpj { get; private set; }
+
+    public string? AcquirerName { get; private set; }
+}
+
+/// <summary>Dados de um pagamento aprovado pelo TEF ou confirmado pelo PSP do Pix.</summary>
+public sealed record PaymentIntegration(string TransactionId, string? AuthorizationCode, string? CardBrand, string? AcquirerCnpj,
+    string? AcquirerName)
+{
+    public static string? NormalizeBrand(string? brand)
+    {
+        var digits = new string((brand ?? "").Where(char.IsDigit).ToArray());
+        return digits.Length is 1 or 2 ? digits.PadLeft(2, '0') : null;
+    }
 }
