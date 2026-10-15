@@ -2,7 +2,8 @@
 
 Ponto de venda para Windows em **.NET 10 (LTS)**, com WPF, PostgreSQL e EF Core 10. Vários caixas em rede usam um
 servidor central da loja (ASP.NET Core) — os caixas não acessam o banco.
-Etapas até a operação em loja real: [docs/ROADMAP.md](docs/ROADMAP.md).
+**Documentação completa: [docs/](docs/README.md)** (arquitetura, regras de negócio, servidor e caixas, fiscal,
+manual de operação, instalação, segurança, desenvolvimento e histórico). Etapas: [docs/ROADMAP.md](docs/ROADMAP.md).
 Este repositório implementa o início do MVP descrito no planejamento do produto (V0.1 → V0.3).
 
 ## Stack
