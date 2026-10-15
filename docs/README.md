@@ -10,6 +10,7 @@ Esta pasta é a documentação oficial do projeto e é **atualizada junto com ca
 | [Regras de negócio (domínio)](dominio.md) | Desenvolvimento / suporte | Vendas, caixa, estoque, devoluções, vale-troca, compras, auditoria |
 | [Servidor da loja e caixas em rede](servidor-e-caixas.md) | Desenvolvimento / suporte | Protocolo, conexão de caixas, versões, quedas de rede e energia |
 | [Fiscal e NFC-e](fiscal.md) | Desenvolvimento / contador | Cadastro fiscal, emissão, contingência, cancelamento, SEFAZ simulada |
+| [Telas do sistema](telas.md) | Todos | Tour visual com capturas de todas as telas, da implantação ao fechamento |
 | [Manual de operação](operacao.md) | Operador / gerente | Atalhos do caixa, retaguarda, relatórios, backup |
 | [Instalação e configuração](instalacao.md) | Técnico de implantação | Instalador, pré-requisitos, arquivos de configuração, firewall, atualização |
 | [Segurança](seguranca.md) | Desenvolvimento / técnico | Permissões, segredos (DPAPI), chaves dos caixas, limitações conhecidas |

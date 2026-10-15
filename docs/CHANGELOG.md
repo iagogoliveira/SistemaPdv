@@ -2,6 +2,8 @@
 
 ## Em desenvolvimento
 
+- Documentação visual: [Telas do sistema](telas.md), com 52 capturas de todas as telas numa loja de demonstração.
+
 - Assistente de implantação (Retaguarda › Implantação, primeira aba enquanto houver pendências): 12 itens conferidos
   pelo servidor — empresa, tributação (com "Contador conferiu"), NCM dos produtos, tabela IBPT, certificado A1
   (validade e CNPJ), CSC, emissão, teste da SEFAZ, usuários, caixas, licença e backup — com atalho para a aba de cada um.
